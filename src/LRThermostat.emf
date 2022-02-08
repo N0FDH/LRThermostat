@@ -1,0 +1,397 @@
+{
+  "version": "1.00",
+  "projectName": "Menu to load onto the L and R thermostat which will control its functions and operation. The thermostat has 3 relays which are used to control the heat mode, cool mode and fan. It uses a BME280 sensor to sense the temperature, pressure and humidity. Local time will be using the Wi - Fi NTP protocol. Three switches Up, Enter, and Down are used to navigate the menu system and control functions on the thermostat.",
+  "author": "randy",
+  "items": [
+    {
+      "parentId": 0,
+      "type": "subMenu",
+      "item": {
+        "secured": false,
+        "name": "TempPresets",
+        "variableName": "TemperaturePresets",
+        "id": 63,
+        "eepromAddress": -1,
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 63,
+      "type": "analogItem",
+      "item": {
+        "maxValue": 100,
+        "offset": 0,
+        "divisor": 1,
+        "unitName": " Deg",
+        "name": "Home Preset",
+        "variableName": "HomePreset",
+        "id": 64,
+        "eepromAddress": 12,
+        "functionName": "HomePresetCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 63,
+      "type": "analogItem",
+      "item": {
+        "maxValue": 100,
+        "offset": 0,
+        "divisor": 1,
+        "unitName": " Deg",
+        "name": "Away Preset",
+        "variableName": "AwayPreset",
+        "id": 65,
+        "eepromAddress": 14,
+        "functionName": "AwayPresetCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 0,
+      "type": "enumItem",
+      "item": {
+        "enumEntries": [
+          "Off",
+          "Heat",
+          "Cool",
+          "Dehumidify"
+        ],
+        "name": "Mode",
+        "variableName": "ModeEnum",
+        "id": 39,
+        "eepromAddress": 6,
+        "functionName": "ModeCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 0,
+      "type": "enumItem",
+      "item": {
+        "enumEntries": [
+          "On",
+          "Auto"
+        ],
+        "name": "Fan",
+        "variableName": "FanEnum",
+        "id": 49,
+        "eepromAddress": 4,
+        "functionName": "FanCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 0,
+      "type": "subMenu",
+      "item": {
+        "secured": false,
+        "name": "Settings",
+        "variableName": "ThermostatSettings",
+        "id": 8,
+        "eepromAddress": -1,
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 8,
+      "type": "subMenu",
+      "item": {
+        "secured": false,
+        "name": "Humidity Settings",
+        "variableName": "HumiditySettings",
+        "id": 15,
+        "eepromAddress": -1,
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 15,
+      "type": "analogItem",
+      "item": {
+        "maxValue": 180,
+        "offset": 0,
+        "divisor": 1,
+        "unitName": " min",
+        "name": "Min Run Time",
+        "variableName": "MinRunTime",
+        "id": 52,
+        "eepromAddress": 10,
+        "functionName": "MinRunTimeCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 15,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": true,
+        "name": "Humidity Cal",
+        "variableName": "HumidityCal",
+        "id": 70,
+        "eepromAddress": 16,
+        "functionName": "HumidityCalCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 15,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": false,
+        "name": "Hysteresis",
+        "variableName": "HumdHysteresis",
+        "id": 71,
+        "eepromAddress": 24,
+        "functionName": "HumdHysteresisCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 8,
+      "type": "subMenu",
+      "item": {
+        "secured": false,
+        "name": "Heating Settings",
+        "variableName": "HeatingSettings",
+        "id": 42,
+        "eepromAddress": -1,
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 42,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": true,
+        "name": "Temp Cal",
+        "variableName": "TempCal",
+        "id": 72,
+        "eepromAddress": 32,
+        "functionName": "TempCalCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 42,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": false,
+        "name": "Hysteresis",
+        "variableName": "TempHysteresis",
+        "id": 73,
+        "eepromAddress": 40,
+        "functionName": "TempHysteresisCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 8,
+      "type": "subMenu",
+      "item": {
+        "secured": false,
+        "name": "Cooling Settings",
+        "variableName": "CoolingSettings",
+        "id": 66,
+        "eepromAddress": -1,
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 66,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": true,
+        "name": "Cooling Cal",
+        "variableName": "CoolingCal",
+        "id": 74,
+        "eepromAddress": 48,
+        "functionName": "CoolingCalCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 66,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": false,
+        "name": "Hysteresis",
+        "variableName": "CoolingHysteresis",
+        "id": 75,
+        "eepromAddress": 56,
+        "functionName": "CoolingHysteresisCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 0,
+      "type": "actionMenu",
+      "item": {
+        "name": "Exit",
+        "variableName": "ExitMenu",
+        "id": 50,
+        "eepromAddress": -1,
+        "functionName": "ExitMenuCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    }
+  ],
+  "codeOptions": {
+    "embeddedPlatform": "ARDUINO_ESP32",
+    "lastDisplayUuid": "e6342680-6fab-4d1b-ac08-ce8dbfc0974c",
+    "lastInputUuid": "2a3ae3ba-05f4-4c9c-aad3-3ddc88df9049",
+    "lastRemoteUuid": "2c101fec-1f7d-4ff3-8d2b-992ad41e7fcb",
+    "lastRemoteUuids": [
+      "2c101fec-1f7d-4ff3-8d2b-992ad41e7fcb"
+    ],
+    "lastThemeUuid": "03c6b25f-db63-402a-8447-a5ce1484c14d",
+    "applicationUUID": "a4a49d27-69e5-459b-a2ea-e3e521bd54d2",
+    "applicationName": "Thermostat Menu",
+    "lastProperties": [
+      {
+        "name": "DISPLAY_VARIABLE",
+        "latestValue": "tft",
+        "subsystem": "DISPLAY"
+      },
+      {
+        "name": "DISPLAY_ROTATION",
+        "latestValue": "3",
+        "subsystem": "DISPLAY"
+      },
+      {
+        "name": "DOUBLE_BUFFER_ROWS",
+        "latestValue": "2",
+        "subsystem": "DISPLAY"
+      },
+      {
+        "name": "UPDATES_PER_SEC",
+        "latestValue": "10",
+        "subsystem": "DISPLAY"
+      },
+      {
+        "name": "PULLUP_LOGIC",
+        "latestValue": "true",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "INTERRUPT_SWITCHES",
+        "latestValue": "false",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "SWITCH_IODEVICE",
+        "latestValue": "devicePins",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "ENCODER_UP_PIN",
+        "latestValue": "13",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "ENCODER_DOWN_PIN",
+        "latestValue": "15",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "ENCODER_BACK_PIN",
+        "latestValue": "-1",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "ENCODER_NEXT_PIN",
+        "latestValue": "-1",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "ENCODER_OK_PIN",
+        "latestValue": "4",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "ITEM_FONT",
+        "latestValue": "def:,2",
+        "subsystem": "THEME"
+      },
+      {
+        "name": "TITLE_FONT",
+        "latestValue": "def:,1",
+        "subsystem": "THEME"
+      },
+      {
+        "name": "BORDER_FOR_ACTIONS",
+        "latestValue": "0",
+        "subsystem": "THEME"
+      },
+      {
+        "name": "TITLE_SHOW_MODE",
+        "latestValue": "TITLE_ALWAYS",
+        "subsystem": "THEME"
+      },
+      {
+        "name": "USE_SLIDER_ANALOG",
+        "latestValue": "false",
+        "subsystem": "THEME"
+      },
+      {
+        "name": "NEED_EDITING_ICONS",
+        "latestValue": "true",
+        "subsystem": "THEME"
+      }
+    ],
+    "namingRecursive": false,
+    "saveToSrc": true,
+    "useCppMain": true,
+    "eepromDefinition": "eeprom:",
+    "authenticatorDefinition": "",
+    "projectIoExpanders": [
+      "deviceIO:"
+    ]
+  }
+}
