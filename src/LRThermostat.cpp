@@ -4,6 +4,8 @@
 #include <EEPROM.h>
 //#include <WiFi.h>
 
+#define DEBUG 1
+
 #define MENU_MAGIC_KEY 0xB00B
 #define EEPROM_LOCAL_VAR_ADDR 0x100 // Leave the lower half for menu storage
 #define INACTIVITY_TIMEOUT 10000    // 10000 mS = 10 sec
@@ -58,7 +60,7 @@ uint32_t lclVarChgTime = 0;
 uint32_t dhMinRunTime = 0;
 uint32_t dhRunUntil = 0;
 
-float hysteresis;       //  +/- hysteresis/2 is centered around the set point.
+float hysteresis; //  +/- hysteresis/2 is centered around the set point.
 
 typedef struct
 {
@@ -82,21 +84,22 @@ void dehumidifyControl();
 void myResetCallback();
 
 // display func declarations
-void mainTemp();
-void tempSmall();
-void tempSetPt();
-void coolOn();
-void coolOff();
-void heatOn();
-void heatOff();
-void dhOn();
-void dhOff();
-void modeOff();
-void fanOn();
-void fanOff();
-void humiditySmall();
-void humidityBig();
-void humiditySetPt();
+void dispMainTemp();
+void dispTempSmall();
+void dispTempSetPt();
+void dispAcSetPt();
+void dispCoolOn();
+void dispCoolOff();
+void dispHeatOn();
+void dispHeatOff();
+void dispDhOn();
+void dispDhOff();
+void dispModeOff();
+void dispFanOn();
+void dispFanOff();
+void dispHumiditySmall();
+void dispHumidityBig();
+void dispHumiditySetPt();
 
 // Main Arduino setup function
 void setup()
@@ -183,8 +186,8 @@ void loop()
                 HEAT(OFF);
             }
 
-            //            // debug
-            //            Serial.printf("%u\n", lclVarChgTime);
+            // Handle fan relay control directly
+            (fan == FAN_ON) ? FAN(ON) : FAN(OFF);
 
             // Check for local var changes that need EEPROM update
             checkLocalVarChanges();
@@ -231,24 +234,80 @@ void checkLocalVarChanges()
 //
 // This function is called by the renderer every 100 mS once the display is taken over.
 //
+#define ENC_MAX 99
 void myDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 {
     static bool myDispInit = FALSE;
-    //    char s[20];
 
-    // No need to call this stuff more than once or it causes screen flicker
+    int16_t *pSetPt = NULL;
+
+    switch (mode)
+    {
+    case HEAT:
+        pSetPt = &loc.heatSetPt;
+        break;
+
+    case COOL:
+        pSetPt = &loc.acSetPt;
+        break;
+
+    case DEHUMIDIFY:
+        pSetPt = &loc.dhSetPt;
+        break;
+
+    case NO_MODE:
+    default:
+        break;
+    }
+
+    // Limit the local & saved setpt values
+    if (pSetPt)
+    {
+        if (*pSetPt > ENC_MAX)
+        {
+            *pSetPt = ENC_MAX;
+        }
+        else if (*pSetPt < 0)
+        {
+            *pSetPt = 0;
+        }
+    }
+
+    // Limit encoder input
+    if (encoderValue > ENC_MAX)
+    {
+        switches.changeEncoderPrecision(999, ENC_MAX);
+        encoderValue = ENC_MAX;
+    }
+
+#if 0
+    if (pSetPt)
+    {
+        static int count = 10;
+        count--;
+        if (count == 0)
+        {
+            count = 10;
+            Serial.printf("enc: %i, setp: %hu \n", encoderValue, *pSetPt);
+        }
+    }
+#endif
+
+    // No need to blacken the screen more than once.
     if (myDispInit == FALSE)
     {
         // The encoderValue seems to change opposite of what I expect, so we
         // need to convert to the reverse.
-        switches.changeEncoderPrecision(999, 100 - loc.heatSetPt);
-        encoderValue = 100 - loc.heatSetPt;
+        if (pSetPt)
+        {
+            switches.changeEncoderPrecision(999, ENC_MAX - *pSetPt);
+
+            // TODO: Why is this necessary?
+            encoderValue = ENC_MAX - *pSetPt;
+        }
 
         // Display init
         tft.fillScreen(TFT_BLACK);
-        //        tft.drawRect(0, 0, 160, 128, TFT_RED);
-        //        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-        //        tft.drawString("O", 110, 35, 2);
 
         myDispInit = TRUE;
     }
@@ -266,66 +325,45 @@ void myDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
     }
 
     // Update setpoint if different; same encoder conversion here
-    loc.heatSetPt = 100 - encoderValue;
+    if (pSetPt)
+    {
+        *pSetPt = ENC_MAX - encoderValue;
+    }
 
     // Items that get updated
-    //    tft.drawNumber(round(curTemp), 45, 40, 7);
-    //    sprintf(s, "Setting: %d", loc.heatSetPt);
-    //    tft.drawCentreString(s, 80, 105, 2);
-    mainTemp();
-    humiditySmall();
-
     switch (mode)
     {
     case HEAT:
-        tempSetPt();
-        if (ctlState == ON)
-        {
-            heatOn();
-        }
-        else
-        {
-            heatOff();
-        }
+        dispMainTemp();
+        dispHumiditySmall();
+        dispTempSetPt();
+        (ctlState == ON) ? dispHeatOn() : dispHeatOff();
         break;
 
     case COOL:
-        tempSetPt();
-        if (ctlState == ON)
-        {
-            coolOn();
-        }
-        else
-        {
-            coolOff();
-        }
+        dispMainTemp();
+        dispHumiditySmall();
+        dispAcSetPt();
+        (ctlState == ON) ? dispCoolOn() : dispCoolOff();
         break;
 
     case DEHUMIDIFY:
-        if (ctlState == ON)
-        {
-            dhOn();
-        }
-        else
-        {
-            dhOff();
-        }
+        dispTempSmall();
+        dispHumidityBig();
+        dispHumiditySetPt();
+        (ctlState == ON) ? dispDhOn() : dispDhOff();
         break;
 
     default:
     case NO_MODE:
-        modeOff();
+        dispMainTemp();
+        dispHumiditySmall();
+        dispModeOff();
         break;
     }
 
-    if (fan == FAN_ON)
-    {
-        fanOn();
-    }
-    else
-    {
-        fanOff();
-    }
+    // fan state
+    (fan == FAN_ON) ? dispFanOn() : dispFanOff();
 
     // Go to the menu when enter pressed
     if (clicked)
@@ -393,7 +431,7 @@ void heatControl()
         // You're in-between, do nothing
     }
 
-#if 1
+#if DEBUG
     static bool lastSt = OFF;
     static float lastSet = -1;
 
@@ -411,7 +449,7 @@ void heatControl()
 // TODO: Need compressor protection (5 min between on -> off -> on transistion)
 void acControl()
 {
-    float set = loc.acSetPt; 
+    float set = loc.acSetPt;
 
     if ((ctlState == ON) && (curTemp < (set - hysteresis)))
     {
@@ -428,7 +466,7 @@ void acControl()
         // You're in-between, do nothing
     }
 
-#if 1
+#if DEBUG
     static bool lastSt = OFF;
     static float lastSet = -1;
 
@@ -445,30 +483,29 @@ void acControl()
 
 void dehumidifyControl()
 {
-#if 1
     float set = loc.dhSetPt;
 
-    if ((ctlState == ON) && (curHumd > (set + hysteresis)))
+    if ((ctlState == ON) && (curHumd < (set - hysteresis)))
     {
         ctlState = OFF;
-        HEAT( OFF );  // DH uses the heat relay
+        HEAT(OFF); // DH uses the heat relay
     }
-    else if ((ctlState == OFF) && (curHumd < (set - hysteresis)))
+    else if ((ctlState == OFF) && (curHumd > (set + hysteresis)))
     {
         ctlState = ON;
-        HEAT( ON );
+        HEAT(ON);
 
-        if (!dhRunUntil)
-        {
-            dhRunUntil = millis() + DH_MIN_RUN_TIME;
-        }
+        //        if (!dhRunUntil)
+        //        {
+        //            dhRunUntil = millis() + DH_MIN_RUN_TIME;
+        //        }
     }
     else
     {
         // You're in-between, do nothing
     }
 
-#if 1
+#if DEBUG
     static bool lastSt = OFF;
     static float lastSet = -1;
 
@@ -477,10 +514,9 @@ void dehumidifyControl()
         lastSt = ctlState;
         lastSet = set;
 
-        Serial.printf("dh: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s\n", 
-                curHumd, set, hysteresis, ctlState ? "ON" : "OFF");
+        Serial.printf("dh: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s\n",
+                      curHumd, set, hysteresis, ctlState ? "ON" : "OFF");
     }
-#endif
 #endif
 }
 
@@ -506,20 +542,6 @@ void CALLBACK_FUNCTION FanCallback(int id)
 {
     int32_t val = menuFanEnum.getCurrentValue();
     Serial.printf("Fan: %d\n", val);
-    menuChg = TRUE;
-}
-
-void CALLBACK_FUNCTION HomePresetCallback(int id)
-{
-    float val = menuHomePreset.getAsFloatingPointValue();
-    Serial.printf("HomePre: %0.1f\n", val);
-    menuChg = TRUE;
-}
-
-void CALLBACK_FUNCTION AwayPresetCallback(int id)
-{
-    float val = menuAwayPreset.getAsFloatingPointValue();
-    Serial.printf("AwayPre: %0.1f\n", val);
     menuChg = TRUE;
 }
 
@@ -564,7 +586,7 @@ void CALLBACK_FUNCTION TempHysteresisCallback(int id)
     {
         Serial.printf("%02X ", pN[i]);
     }
-    Serial.println();    
+    Serial.println();
 #endif
 
     menuChg = TRUE;
@@ -584,7 +606,8 @@ void CALLBACK_FUNCTION CoolingHysteresisCallback(int id)
     menuChg = TRUE;
 }
 
-void mainTemp()
+//******************************** Display Routines ********************************************
+void dispMainTemp()
 {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);     // Note: the new fonts do not draw the background colour
     tft.drawNumber(round(curTemp), 43, 45, 7); // Temperature using font 7
@@ -592,18 +615,44 @@ void mainTemp()
 }
 
 //****************************************** Temperature Set Point ****************************
-void tempSetPt()
+void dispTempSetPt()
 {
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
     tft.drawString("SET", 100, 8, 1);
     tft.setTextSize(2);
-    tft.drawNumber((uint32_t)loc.heatSetPt, 123, 8, 1); // font 1
+    if (loc.heatSetPt > 9)
+    {
+        tft.drawNumber((uint32_t)loc.heatSetPt, 123, 8, 1); // font 1
+    }
+    else
+    {
+        tft.drawString(" ", 123, 8, 1);
+        tft.drawNumber((uint32_t)loc.heatSetPt, 135, 8, 1); // font 1
+    }
+    tft.setTextSize(1);
+    tft.drawString(" o", 145, 6, 1);
+}
+
+void dispAcSetPt()
+{
+    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+    tft.drawString("SET", 100, 8, 1);
+    tft.setTextSize(2);
+    if (loc.acSetPt > 9)
+    {
+        tft.drawNumber((uint32_t)loc.acSetPt, 123, 8, 1); // font 1
+    }
+    else
+    {
+        tft.drawString(" ", 123, 8, 1);
+        tft.drawNumber((uint32_t)loc.acSetPt, 135, 8, 1); // font 1
+    }
     tft.setTextSize(1);
     tft.drawString(" o", 145, 6, 1);
 }
 
 // ****************************** Humidity Reading for when temperature is main screen ****************
-void humiditySmall()
+void dispHumiditySmall()
 {
     tft.setTextColor(TFT_ORANGE, TFT_BLACK);
     tft.setTextSize(2);
@@ -613,49 +662,49 @@ void humiditySmall()
 }
 
 //****************************************** MODES *****************************************************
-void coolOff()
+void dispCoolOff()
 {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("COOL    ", 8, 115, 1);
     tft.drawString("OFF", 8, 105, 1);
 }
 
-void coolOn()
+void dispCoolOn()
 {
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
     tft.drawString("COOL    ", 8, 115, 1);
     tft.drawString("ON ", 8, 105, 1);
 }
 
-void heatOff()
+void dispHeatOff()
 {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("HEAT    ", 8, 115, 1);
     tft.drawString("OFF", 8, 105, 1);
 }
 
-void heatOn()
+void dispHeatOn()
 {
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.drawString("HEAT    ", 8, 115, 1);
     tft.drawString("ON ", 8, 105, 1);
 }
 
-void dhOff()
+void dispDhOff()
 {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("DEHUMIDIFY", 8, 115, 1);
     tft.drawString("OFF", 8, 105, 1);
 }
 
-void dhOn()
+void dispDhOn()
 {
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
     tft.drawString("DEHUMIDIFY", 8, 115, 1);
     tft.drawString("ON ", 8, 105, 1);
 }
 
-void modeOff()
+void dispModeOff()
 {
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.drawString("          ", 8, 105, 1);
@@ -663,14 +712,14 @@ void modeOff()
 }
 
 //****************************************** Fan ******************************************************
-void fanOn()
+void dispFanOn()
 {
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
     tft.drawString("FAN    ", 135, 115, 1);
     tft.drawString("ON  ", 135, 105, 1);
 }
 
-void fanOff()
+void dispFanOff()
 {
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
     tft.drawString("       ", 135, 115, 1);
@@ -678,10 +727,8 @@ void fanOff()
 }
 
 // ****************************** Humidity Reading for when Humidity is main screen ****************
-void humidityBig()
+void dispHumidityBig()
 {
-    tft.fillScreen(TFT_BLACK);
-
     tft.setTextColor(TFT_ORANGE, TFT_BLACK);
     tft.drawNumber(round(curHumd), 43, 45, 7);
     tft.setTextSize(2);
@@ -690,18 +737,26 @@ void humidityBig()
 }
 
 // ****************************** Humidity set point ***********************************************
-void humiditySetPt()
+void dispHumiditySetPt()
 {
     tft.setTextColor(TFT_PINK, TFT_BLACK);
     tft.setTextSize(2);
-    tft.drawNumber((uint32_t)loc.dhSetPt, 8, 8, 1); // Humidity at font 1
+    if (loc.dhSetPt > 9)
+    {
+        tft.drawNumber((uint32_t)loc.dhSetPt, 8, 8, 1); // font 1
+    }
+    else
+    {
+        tft.drawString(" ", 8, 8, 1);
+        tft.drawNumber((uint32_t)loc.dhSetPt, 20, 8, 1); // font 1
+    }
     tft.setTextSize(1);
     tft.drawString(" %", 30, 6, 1);
     tft.drawString("SET", 48, 8, 1);
 }
 
 //******************************** Temperature in Dehumidity Mode ***********************************
-void tempSmall()
+void dispTempSmall()
 {
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
     tft.setTextSize(2);
@@ -709,4 +764,3 @@ void tempSmall()
     tft.setTextSize(1);
     tft.drawString(" o", 145, 6, 1);
 }
-

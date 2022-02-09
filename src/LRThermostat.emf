@@ -5,56 +5,6 @@
   "items": [
     {
       "parentId": 0,
-      "type": "subMenu",
-      "item": {
-        "secured": false,
-        "name": "TempPresets",
-        "variableName": "TemperaturePresets",
-        "id": 63,
-        "eepromAddress": -1,
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 63,
-      "type": "analogItem",
-      "item": {
-        "maxValue": 100,
-        "offset": 0,
-        "divisor": 1,
-        "unitName": " Deg",
-        "name": "Home Preset",
-        "variableName": "HomePreset",
-        "id": 64,
-        "eepromAddress": 12,
-        "functionName": "HomePresetCallback",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 63,
-      "type": "analogItem",
-      "item": {
-        "maxValue": 100,
-        "offset": 0,
-        "divisor": 1,
-        "unitName": " Deg",
-        "name": "Away Preset",
-        "variableName": "AwayPreset",
-        "id": 65,
-        "eepromAddress": 14,
-        "functionName": "AwayPresetCallback",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 0,
       "type": "enumItem",
       "item": {
         "enumEntries": [

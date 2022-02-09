@@ -48,24 +48,18 @@ extern BackMenuItem menuBackThermostatSettings;
 extern SubMenuItem menuThermostatSettings;
 extern EnumMenuItem menuFanEnum;
 extern EnumMenuItem menuModeEnum;
-extern AnalogMenuItem menuAwayPreset;
-extern AnalogMenuItem menuHomePreset;
-extern BackMenuItem menuBackTemperaturePresets;
-extern SubMenuItem menuTemperaturePresets;
 
 // Provide a wrapper to get hold of the root menu item and export setupMenu
-inline MenuItem& rootMenuItem() { return menuTemperaturePresets; }
+inline MenuItem& rootMenuItem() { return menuModeEnum; }
 void setupMenu();
 
 // Callback functions must always include CALLBACK_FUNCTION after the return type
 #define CALLBACK_FUNCTION
 
-void CALLBACK_FUNCTION AwayPresetCallback(int id);
 void CALLBACK_FUNCTION CoolingCalCallback(int id);
 void CALLBACK_FUNCTION CoolingHysteresisCallback(int id);
 void CALLBACK_FUNCTION ExitMenuCallback(int id);
 void CALLBACK_FUNCTION FanCallback(int id);
-void CALLBACK_FUNCTION HomePresetCallback(int id);
 void CALLBACK_FUNCTION HumdHysteresisCallback(int id);
 void CALLBACK_FUNCTION HumidityCalCallback(int id);
 void CALLBACK_FUNCTION MinRunTimeCallback(int id);
