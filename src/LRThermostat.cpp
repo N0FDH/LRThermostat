@@ -2,6 +2,7 @@
 #include "LRThermostat_menu.h"
 #include <Adafruit_BME280.h>
 #include <EEPROM.h>
+#include <Filter.h>
 //#include <WiFi.h>
 
 #define DEBUG 1
@@ -405,11 +406,37 @@ void loadMenuChanges()
     menuChg = FALSE;
 }
 
+// Read BME280 sensors. Use an exponential filter to filter out sensor noise. 
+// First, initialize the filter with an initial read. After that, each reading 
+// only allows a 10% change in value. So for example, if a normal temperature 
+// reading is 66.0 degrees, and then the next adc reading is 70.0 (which is a highly
+// unlikely jump in temp), the filter will increase the reading by 10%, or 0.4 deg
+// instead of the full 4.0 deg. If you do experience a rapid change, the final 
+// reading will eventually be achieved after several iterations of the filter. 
 void readSensors()
 {
-    curTemp = bme.readTemperature() * 1.8 + 32 + tempCal;
-    curHumd = bme.readHumidity() + humdCal;
-    curBaro = bme.readPressure() / 3386.39 + baroCal;
+    static bool readSensorsInit = FALSE;
+
+    // Create exponential filters with a weight of 10% 
+    static ExponentialFilter<float> tempFilter(10, 0);
+    static ExponentialFilter<float> humdFilter(10, 0);
+    static ExponentialFilter<float> baroFilter(10, 0);
+
+    if (readSensorsInit == FALSE)
+    {
+        tempFilter.SetCurrent(bme.readTemperature());
+        humdFilter.SetCurrent(bme.readHumidity());
+        baroFilter.SetCurrent(bme.readPressure());
+        readSensorsInit = TRUE;
+    }
+
+    tempFilter.Filter(bme.readTemperature());
+    humdFilter.Filter(bme.readHumidity());
+    baroFilter.Filter(bme.readPressure());
+
+    curTemp = tempFilter.Current() * 1.8 + 32 + tempCal;
+    curHumd = humdFilter.Current() + humdCal;
+    curBaro = baroFilter.Current() / 3386.39 + baroCal;
 }
 
 void heatControl()
