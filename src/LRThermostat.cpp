@@ -7,27 +7,32 @@
 
 #define DEBUG 1
 
-#define MENU_MAGIC_KEY 0xB00B
-#define EEPROM_LOCAL_VAR_ADDR 0x100 // Leave the lower half for menu storage
-#define INACTIVITY_TIMEOUT 10000    // 10000 mS = 10 sec
-#define COMPRESSOR_DELAY (5 * 60) // 5 minutes (counted in seconds)
-#define LOOP_1_SEC 1000                  // 1000 mS = 1 sec
-
-// Dehumidifier minimum run time once switched on, to avoid short cycling.
-// TODO: add to menu
-#define DH_MIN_RUN_TIME (30 * 60 * 1000) // min * 60 sec/min * 1000 mS/s
-
+// Hardware definitions
 #define FAN_RELAY 16  // GPIO
 #define HEAT_RELAY 17 // GPIO
 
+// Misc defines
+#define MENU_MAGIC_KEY 0xB00B
+#define EEPROM_LOCAL_VAR_ADDR 0x100 // Leave the lower half for menu storage
+#define INACTIVITY_TIMEOUT 10000    // 10000 mS = 10 sec
+#define COMPRESSOR_DELAY (5 * 60)   // 5 minutes (counted in seconds)
+#define LOOP_1_SEC 1000             // 1000 mS = 1 sec
+
+#define DH_MIN_RUN_TIME (30 * 60 * 1000) // min * 60 sec/min * 1000 mS/s
+                                         // Dehumidifier minimum run time once
+                                         // switched on, to avoid short cycling.
+
+// Logical defines
 #define FALSE 0
 #define TRUE 1
 #define OFF 0
 #define ON 1
+
+// Relay control macros
 #define FAN(a) digitalWrite(FAN_RELAY, ((a) ? (OFF) : (ON)))
 #define HEAT(a) digitalWrite(HEAT_RELAY, ((a) ? (OFF) : (ON)))
 
-// Globals
+// Temp/humidity/pressure sensor - BME280
 Adafruit_BME280 bme;
 
 float curTemp = 0; // BME280
@@ -35,7 +40,7 @@ float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
 // The following variables are loaded from the menu
-// START of menu loaded variables
+// START of tcMenu loaded variables
 float tempCal = 0.0;       // calibration factor
 float humdCal = 0.0;       // calibration factor
 float baroCal = 0.0;       // calibration factor
@@ -59,18 +64,20 @@ typedef enum
     FAN_AUTO
 } FAN;
 FAN fan;
-// END of menu loaded variables
+// END of tcMenu loaded variables
 
-bool ctlState = OFF;
-bool fanState = OFF;
-bool menuChg = FALSE;
-uint32_t lclVarChgTime = 0; // Used to time saving of local vars to EEPROM
 
-uint32_t dhRunUntil = 0;                     // Dehumidifier "run until" coounter; used in conjunction with dhMinRunTime
+bool ctlState = OFF; // heat/cool/dh state
+bool fanState = OFF; // fan state
+
+bool menuChg = FALSE; // tcMenu variable change flag (to signal save to EEPROm needed)
+uint32_t lclVarChgTime = 0; // local variable change falg
+
 uint32_t compressorDelay = COMPRESSOR_DELAY; // in cooling and dh modes, wait 5 min before restarting after last time
                                              // it was shut off. Same delay at boot up of thermostat.
 uint32_t minRunTimeDelay = 0;                // Dehumidifier min runtime countdown
 
+// The local variables that are backed up in EEPROM
 typedef struct
 {
     int16_t heatSetPt; // heat  0-100 is range for all setPts
@@ -254,9 +261,7 @@ void checkLocalVarChanges()
     }
 }
 
-//
 // This function is called by the renderer every 100 mS once the display is taken over.
-//
 #define ENC_MAX 99
 void myDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 {
@@ -397,6 +402,7 @@ void myDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
     }
 }
 
+// Go fetch menu values from tcMenu
 void loadMenuChanges()
 {
     tempCal = menuTempCal.getLargeNumber()->getAsFloat();
@@ -404,7 +410,7 @@ void loadMenuChanges()
     //    baroCal = menuPressureCal.getLargeNumber()->getAsFloat();
     mode = (MODE)menuModeEnum.getCurrentValue();
     fan = (FAN)menuFanEnum.getCurrentValue();
-    dhMinRunTime = menuMinRunTime.getAsFloatingPointValue() * 60;  // specified in min, convert to sec.
+    dhMinRunTime = menuMinRunTime.getAsFloatingPointValue() * 60; // specified in min, convert to sec.
 
     switch (mode)
     {
@@ -591,6 +597,7 @@ void myResetCallback()
     renderer.takeOverDisplay(myDisplayFunction);
 }
 
+// The tcMenu callbacks
 void CALLBACK_FUNCTION ExitMenuCallback(int id)
 {
     renderer.takeOverDisplay(myDisplayFunction);
@@ -671,7 +678,7 @@ void CALLBACK_FUNCTION CoolingHysteresisCallback(int id)
     menuChg = TRUE;
 }
 
-//******************************** Display Routines ********************************************
+//******************************** Display Routines *******************************************
 void dispMainTemp()
 {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);     // Note: the new fonts do not draw the background colour
@@ -716,7 +723,7 @@ void dispAcSetPt()
     tft.drawString(" o", 145, 6, 1);
 }
 
-// ****************************** Humidity Reading for when temperature is main screen ****************
+// ********************** Humidity Reading for when temperature is main screen ****************
 void dispHumiditySmall()
 {
     tft.setTextColor(TFT_ORANGE, TFT_BLACK);
@@ -726,7 +733,7 @@ void dispHumiditySmall()
     tft.drawString(" %", 30, 6, 1);
 }
 
-//****************************************** MODES *****************************************************
+//****************************************** MODES ********************************************
 void dispCoolOff()
 {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
@@ -776,7 +783,7 @@ void dispModeOff()
     tft.drawString("OFF       ", 8, 115, 1);
 }
 
-//****************************************** Fan ******************************************************
+//****************************************** Fan **********************************************
 void dispFanOn()
 {
     tft.setTextColor(TFT_GREEN, TFT_BLACK);
@@ -791,7 +798,7 @@ void dispFanOff()
     tft.drawString("    ", 135, 105, 1);
 }
 
-// ****************************** Humidity Reading for when Humidity is main screen ****************
+// ************************* Humidity Reading for when Humidity is main screen ****************
 void dispHumidityBig()
 {
     tft.setTextColor(TFT_ORANGE, TFT_BLACK);
@@ -801,7 +808,7 @@ void dispHumidityBig()
     tft.setTextSize(1);
 }
 
-// ****************************** Humidity set point ***********************************************
+// ****************************** Humidity set point ******************************************
 void dispHumiditySetPt()
 {
     tft.setTextColor(TFT_PINK, TFT_BLACK);
@@ -820,7 +827,7 @@ void dispHumiditySetPt()
     tft.drawString("SET", 48, 8, 1);
 }
 
-//******************************** Temperature in Dehumidity Mode ***********************************
+//******************************** Temperature in Dehumidity Mode *****************************
 void dispTempSmall()
 {
     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
