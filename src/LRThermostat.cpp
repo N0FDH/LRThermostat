@@ -10,7 +10,8 @@
 #define MENU_MAGIC_KEY 0xB00B
 #define EEPROM_LOCAL_VAR_ADDR 0x100 // Leave the lower half for menu storage
 #define INACTIVITY_TIMEOUT 10000    // 10000 mS = 10 sec
-#define LOOP_1_SEC 1000             // 1000 mS = 1 sec
+#define COMPRESSOR_DELAY (5 * 60) // 5 minutes (counted in seconds)
+#define LOOP_1_SEC 1000                  // 1000 mS = 1 sec
 
 // Dehumidifier minimum run time once switched on, to avoid short cycling.
 // TODO: add to menu
@@ -33,9 +34,13 @@ float curTemp = 0; // BME280
 float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
-float tempCal = 0.0; // calibration factor
-float humdCal = 0.0; // calibration factor
-float baroCal = 0.0; // calibration factor
+// The following variables are loaded from the menu
+// START of menu loaded variables
+float tempCal = 0.0;       // calibration factor
+float humdCal = 0.0;       // calibration factor
+float baroCal = 0.0;       // calibration factor
+float hysteresis;          //  (+/-) hysteresis/2 is centered around the set point.
+uint32_t dhMinRunTime = 0; // Dehumidifier minimim run time before shutting off
 
 // Note: tcMenu does not provide an enums like this. Be sure to update these
 // if/when you change the mode variable in tcMenu. Order must match!
@@ -54,14 +59,17 @@ typedef enum
     FAN_AUTO
 } FAN;
 FAN fan;
+// END of menu loaded variables
 
 bool ctlState = OFF;
+bool fanState = OFF;
 bool menuChg = FALSE;
-uint32_t lclVarChgTime = 0;
-uint32_t dhMinRunTime = 0;
-uint32_t dhRunUntil = 0;
+uint32_t lclVarChgTime = 0; // Used to time saving of local vars to EEPROM
 
-float hysteresis; //  +/- hysteresis/2 is centered around the set point.
+uint32_t dhRunUntil = 0;                     // Dehumidifier "run until" coounter; used in conjunction with dhMinRunTime
+uint32_t compressorDelay = COMPRESSOR_DELAY; // in cooling and dh modes, wait 5 min before restarting after last time
+                                             // it was shut off. Same delay at boot up of thermostat.
+uint32_t minRunTimeDelay = 0;                // Dehumidifier min runtime countdown
 
 typedef struct
 {
@@ -82,6 +90,7 @@ void readSensors();
 void heatControl();
 void acControl();
 void dehumidifyControl();
+void fanControl();
 void myResetCallback();
 
 // display func declarations
@@ -187,12 +196,25 @@ void loop()
                 HEAT(OFF);
             }
 
-            // Handle fan relay control directly
-            (fan == FAN_ON) ? FAN(ON) : FAN(OFF);
+            // handle fan relay
+            fanControl();
+
+            // decrement compressor delay to 0
+            if (compressorDelay > 0)
+            {
+                compressorDelay--;
+            }
+
+            // decrement min run time to 0
+            if (minRunTimeDelay > 0)
+            {
+                minRunTimeDelay--;
+            }
 
             // Check for local var changes that need EEPROM update
             checkLocalVarChanges();
-        }
+
+        } // end of 1 sec loop
 
         // Save local vars if inactivity timeout
         if (lclVarChgTime && ((lclVarChgTime + INACTIVITY_TIMEOUT) < curTime))
@@ -382,7 +404,7 @@ void loadMenuChanges()
     //    baroCal = menuPressureCal.getLargeNumber()->getAsFloat();
     mode = (MODE)menuModeEnum.getCurrentValue();
     fan = (FAN)menuFanEnum.getCurrentValue();
-    dhMinRunTime = menuMinRunTime.getAsFloatingPointValue();
+    dhMinRunTime = menuMinRunTime.getAsFloatingPointValue() * 60;  // specified in min, convert to sec.
 
     switch (mode)
     {
@@ -406,18 +428,21 @@ void loadMenuChanges()
     menuChg = FALSE;
 }
 
-// Read BME280 sensors. Use an exponential filter to filter out sensor noise. 
-// First, initialize the filter with an initial read. After that, each reading 
-// only allows a 10% change in value. So for example, if a normal temperature 
-// reading is 66.0 degrees, and then the next adc reading is 70.0 (which is a highly
-// unlikely jump in temp), the filter will increase the reading by 10%, or 0.4 deg
-// instead of the full 4.0 deg. If you do experience a rapid change, the final 
-// reading will eventually be achieved after several iterations of the filter. 
+// Read BME280 sensors. Use an exponential filter to filter out sensor noise.
+// First, initialize the filter with an initial read. After that, each reading
+// only allows approximately a 10% change in value, using the following formula:
+// y(n) = ( w * x(n) ) + ( (1 – w) * y(n–1) )
+// where 'w' is the weighting facor (ie 10%)
+// So for example, if a normal temperature reading is 66.0 degrees, and then the
+// next adc reading is 70.0 (which is a highly unlikely jump in temp), the filter
+// will increase the reading by ~10%, or 0.4 deg instead of the full 4.0 deg.
+// If you do experience a rapid change, the final reading will eventually be
+// achieved after several iterations of the filter.
 void readSensors()
 {
     static bool readSensorsInit = FALSE;
 
-    // Create exponential filters with a weight of 10% 
+    // Create exponential filters with a weight of 10%
     static ExponentialFilter<float> tempFilter(10, 0);
     static ExponentialFilter<float> humdFilter(10, 0);
     static ExponentialFilter<float> baroFilter(10, 0);
@@ -473,7 +498,6 @@ void heatControl()
 #endif
 }
 
-// TODO: Need compressor protection (5 min between on -> off -> on transistion)
 void acControl()
 {
     float set = loc.acSetPt;
@@ -482,8 +506,9 @@ void acControl()
     {
         ctlState = OFF;
         HEAT(OFF);
+        compressorDelay = COMPRESSOR_DELAY;
     }
-    else if ((ctlState == OFF) && (curTemp > (set + hysteresis)))
+    else if ((ctlState == OFF) && (curTemp > (set + hysteresis)) && (compressorDelay == 0))
     {
         ctlState = ON;
         HEAT(ON);
@@ -502,8 +527,8 @@ void acControl()
         lastSt = ctlState;
         lastSet = set;
 
-        Serial.printf("cool: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s\n",
-                      curTemp, set, hysteresis, ctlState ? "ON" : "OFF");
+        Serial.printf("cool: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s  cmpDly: %u\n",
+                      curTemp, set, hysteresis, ctlState ? "ON" : "OFF", compressorDelay);
     }
 #endif
 }
@@ -512,20 +537,17 @@ void dehumidifyControl()
 {
     float set = loc.dhSetPt;
 
-    if ((ctlState == ON) && (curHumd < (set - hysteresis)))
+    if ((ctlState == ON) && (curHumd < (set - hysteresis)) && (minRunTimeDelay == 0))
     {
         ctlState = OFF;
         HEAT(OFF); // DH uses the heat relay
+        compressorDelay = COMPRESSOR_DELAY;
     }
-    else if ((ctlState == OFF) && (curHumd > (set + hysteresis)))
+    else if ((ctlState == OFF) && (curHumd > (set + hysteresis)) && (compressorDelay == 0))
     {
         ctlState = ON;
         HEAT(ON);
-
-        //        if (!dhRunUntil)
-        //        {
-        //            dhRunUntil = millis() + DH_MIN_RUN_TIME;
-        //        }
+        minRunTimeDelay = dhMinRunTime;
     }
     else
     {
@@ -541,10 +563,26 @@ void dehumidifyControl()
         lastSt = ctlState;
         lastSet = set;
 
-        Serial.printf("dh: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s\n",
-                      curHumd, set, hysteresis, ctlState ? "ON" : "OFF");
+        Serial.printf("dh: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s  cmpDly: %u  minRT: %u\n",
+                      curHumd, set, hysteresis, ctlState ? "ON" : "OFF", compressorDelay, minRunTimeDelay);
     }
 #endif
+}
+
+void fanControl()
+{
+    if ((fanState == ON) && (fan == FAN_AUTO))
+    {
+        FAN(OFF);
+    }
+    else if ((fanState == OFF) && (fan == FAN_ON))
+    {
+        FAN(ON);
+    }
+    else
+    {
+        // You're in-between, do nothing
+    }
 }
 
 // This function is called when the menu becomes inactive.
