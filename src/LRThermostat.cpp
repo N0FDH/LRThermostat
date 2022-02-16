@@ -3,7 +3,9 @@
 #include <Adafruit_BME280.h>
 #include <EEPROM.h>
 #include <Filter.h>
-//#include <WiFi.h>
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
+#include "WifiCredentials.h"
 
 #define DEBUG 1
 
@@ -66,11 +68,10 @@ typedef enum
 FAN fan;
 // END of tcMenu loaded variables
 
-
 bool ctlState = OFF; // heat/cool/dh state
 bool fanState = OFF; // fan state
 
-bool menuChg = FALSE; // tcMenu variable change flag (to signal save to EEPROm needed)
+bool menuChg = FALSE;       // tcMenu variable change flag (to signal save to EEPROm needed)
 uint32_t lclVarChgTime = 0; // local variable change falg
 
 uint32_t compressorDelay = COMPRESSOR_DELAY; // in cooling and dh modes, wait 5 min before restarting after last time
@@ -91,7 +92,7 @@ EEPROM_LOCAL_VARS chgdVars = {0}; // Changes to be committed
 
 // Function declarations
 void checkLocalVarChanges();
-void myDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
+void LocalDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
 void loadMenuChanges();
 void readSensors();
 void heatControl();
@@ -117,6 +118,9 @@ void dispFanOff();
 void dispHumiditySmall();
 void dispHumidityBig();
 void dispHumiditySetPt();
+
+// Wifi and web server stuff
+void WifiSetup();
 
 // Main Arduino setup function
 void setup()
@@ -159,6 +163,10 @@ void setup()
     FAN(OFF);
     pinMode(HEAT_RELAY, OUTPUT);
     HEAT(OFF);
+
+    // Wifi
+    
+WifiSetup();
 }
 
 // Main Arduino control loop
@@ -263,7 +271,7 @@ void checkLocalVarChanges()
 
 // This function is called by the renderer every 100 mS once the display is taken over.
 #define ENC_MAX 99
-void myDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
+void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 {
     static bool myDispInit = FALSE;
 
@@ -455,16 +463,24 @@ void readSensors()
 
     if (readSensorsInit == FALSE)
     {
+        // Throw out first reading
+        bme.readTemperature();
+        bme.readHumidity();
+        bme.readPressure();
+
+        // Read a second time to initialize the filter
         tempFilter.SetCurrent(bme.readTemperature());
         humdFilter.SetCurrent(bme.readHumidity());
         baroFilter.SetCurrent(bme.readPressure());
         readSensorsInit = TRUE;
     }
 
+    // Run the filter
     tempFilter.Filter(bme.readTemperature());
     humdFilter.Filter(bme.readHumidity());
     baroFilter.Filter(bme.readPressure());
 
+    // Extract and post-process the readings
     curTemp = tempFilter.Current() * 1.8 + 32 + tempCal;
     curHumd = humdFilter.Current() + humdCal;
     curBaro = baroFilter.Current() / 3386.39 + baroCal;
@@ -594,13 +610,13 @@ void fanControl()
 // This function is called when the menu becomes inactive.
 void myResetCallback()
 {
-    renderer.takeOverDisplay(myDisplayFunction);
+    renderer.takeOverDisplay(localDisplayFunction);
 }
 
 // The tcMenu callbacks
 void CALLBACK_FUNCTION ExitMenuCallback(int id)
 {
-    renderer.takeOverDisplay(myDisplayFunction);
+    renderer.takeOverDisplay(localDisplayFunction);
 }
 
 void CALLBACK_FUNCTION ModeCallback(int id)
@@ -835,4 +851,20 @@ void dispTempSmall()
     tft.drawNumber(round(curTemp), 123, 8, 1); // font 1
     tft.setTextSize(1);
     tft.drawString(" o", 145, 6, 1);
+}
+
+void WifiSetup()
+{
+    Serial.printf("Connecting to: %s\n", ssid);
+    WiFi.disconnect();
+    WiFi.mode(WIFI_STA); // switch off AP
+    WiFi.setAutoConnect(true);
+    WiFi.setAutoReconnect(true);
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.print(".");
+        delay(50);
+    }
+    Serial.println("\nWiFi connected at: " + WiFi.localIP().toString());
 }
