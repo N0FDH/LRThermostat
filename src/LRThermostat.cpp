@@ -566,7 +566,7 @@ void fanControl()
 
 void configEncoderForMode()
 {
-    loadMenuChanges();
+    loadMenuChanges();  // We need to know if 'mode' has changed
 
     switch (mode)
     {
@@ -588,6 +588,7 @@ void configEncoderForMode()
         break;
     }
 
+    // Encoder goes from 0 - 99 (ENC_MAX). Encoder is set to current set point
     switches.changeEncoderPrecision(ENC_MAX, pSetPt ? ENC_MAX - *pSetPt : 0);
 
     Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
@@ -961,7 +962,7 @@ void Homepage()
     webpage += "<tr>";
     webpage += "<td class='large'>" + String(curTemp, 1) + "&deg;</td>";
     webpage += "<td class='large'>" + String(curHumd, 0) + "%</td>";
-    webpage += "<td class='large'>" + String(setPt, 1) + "&deg;</td>";
+    webpage += "<td class='large'>" + String((float)setPt, 1) + "&deg;</td>";
     webpage += "</tr>";
     webpage += "</table>";
     webpage += "<br>";
