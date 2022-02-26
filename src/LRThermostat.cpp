@@ -91,6 +91,10 @@ EEPROM_LOCAL_VARS loc;            // local working variables
 EEPROM_LOCAL_VARS chgdVars = {0}; // Changes to be committed
 int16_t *pSetPt = NULL;           // Pointer to current setpoint based upon mode
 
+// TODO: I don't care for this much...
+String webpage = ""; // General purpose variable to hold HTML code for display
+String sitetitle = "LR Thermostat";
+
 // Function declarations
 void checkLocalVarChanges();
 void LocalDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
@@ -122,7 +126,13 @@ void dispHumiditySetPt();
 void configEncoderForMode();
 
 // Wifi and web server stuff
+AsyncWebServer server(80);
 void WifiSetup();
+void SetupTime();
+void SetupWebpageHandlers();
+void append_HTML_header(bool refreshMode);
+void append_HTML_footer();
+void Homepage();
 
 // Main Arduino setup function
 void setup()
@@ -167,7 +177,7 @@ void setup()
     HEAT(OFF);
 
     // Wifi
-    // WifiSetup();
+    WifiSetup();
 }
 
 // Main Arduino control loop
@@ -831,6 +841,7 @@ void dispTempSmall()
     tft.drawString(" o", 145, 6, 1);
 }
 
+//#########################################################################################
 void WifiSetup()
 {
     Serial.printf("Connecting to: %s\n", ssid);
@@ -842,7 +853,175 @@ void WifiSetup()
     while (WiFi.status() != WL_CONNECTED)
     {
         Serial.print(".");
-        delay(50);
+        delay(100);
     }
-    Serial.println("\nWiFi connected at: " + WiFi.localIP().toString());
+    Serial.println("\nWiFi connected, IP = " + WiFi.localIP().toString());
+
+    SetupWebpageHandlers();
+    server.begin();
+
+    Serial.println("Web server started.");
+}
+
+//#########################################################################################
+#if 0
+String WiFiSignal()
+{
+    float Signal = WiFi.RSSI();
+    Signal = 90 / 40.0 * Signal + 212.5; // From Signal = 100% @ -50dBm and Signal = 10% @ -90dBm and y = mx + c
+    if (Signal > 100)
+        Signal = 100;
+    return " " + String(Signal, 0) + "%";
+}
+#else
+    // https://www.intuitibits.com/2016/03/23/dbm-to-percent-conversion/
+String WiFiSignal(void)
+{
+    const unsigned char dBm2Percent[74] =
+    {
+        100, 99, 99, 99, 98, 98, 98, 97, 97, 96, // -20 .. -29
+        96, 95, 95, 94, 93, 93, 92, 91, 90, 90,  // -30 .. -39
+        89, 88, 87, 86, 85, 84, 83, 82, 81, 80,  // -40 .. -49
+        79, 78, 76, 75, 74, 73, 71, 70, 69, 67,  // -50 .. -59
+        66, 64, 63, 61, 60, 58, 56, 55, 53, 51,  // -60 .. -69
+        50, 48, 46, 44, 42, 40, 38, 36, 34, 32,  // -70 .. -79
+        30, 28, 26, 24, 22, 20, 17, 15, 13, 10,  // -80 .. -89
+        8, 6, 3, 1                               // -90 .. -93
+    };
+
+    int sig = (int)WiFi.RSSI();
+    int percent = 0; // no signal if not modified below
+
+    if (sig > -20)
+    {
+        percent = 100;
+    }
+    else if (sig >= -93)
+    {
+        percent = dBm2Percent[(-20) - sig];
+    }
+    else if (sig >= -100)
+    {
+        percent = 1;
+    }
+    return String(percent) + "%";
+}
+#endif
+
+//#########################################################################################
+void SetupWebpageHandlers()
+{
+    // Set handler for '/'
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+              { request->redirect("/homepage"); });
+
+    // Set handler for '/homepage'
+    server.on("/homepage", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
+    Homepage();
+    request->send(200, "text/html", webpage); });
+}
+
+//#########################################################################################
+void Homepage()
+{
+    Serial.println("In Homepage()");
+
+    uint16_t setPt = 0;
+    switch (mode)
+    {
+    case HEAT:
+        setPt = loc.heatSetPt;
+        break;
+
+    case COOL:
+        setPt = loc.acSetPt;
+        break;
+
+    case DEHUMIDIFY:
+        setPt = loc.dhSetPt;
+        break;
+
+    case NO_MODE:
+    default:
+        break;
+    }
+
+    append_HTML_header(20);
+    webpage += "<h2>Smart Thermostat Status</h2><br>";
+    //    webpage += "<div class='numberCircle'><span class=" + String((RelayState == "ON" ? "'on'>" : "'off'>")) + String(Temperature, 1) + "&deg;</span></div><br><br><br>";
+    webpage += "<table class='centre'>";
+    webpage += "<tr>";
+    webpage += "<td>Temperature</td>";
+    webpage += "<td>Humidity</td>";
+    webpage += "<td>Target Temperature</td>";
+    webpage += "<td>Thermostat Status</td>";
+    webpage += "<td>Schedule Status</td>";
+    webpage += "</tr>";
+    webpage += "<tr>";
+    webpage += "<td class='large'>" + String(curTemp, 1) + "&deg;</td>";
+    webpage += "<td class='large'>" + String(curHumd, 0) + "%</td>";
+    webpage += "<td class='large'>" + String(setPt, 1) + "&deg;</td>";
+    webpage += "</tr>";
+    webpage += "</table>";
+    webpage += "<br>";
+    append_HTML_footer();
+}
+
+//#########################################################################################
+void append_HTML_header(bool refreshMode)
+{
+    webpage = "<!DOCTYPE html><html lang='en'>";
+    webpage += "<head>";
+    webpage += "<title>" + sitetitle + "</title>";
+    webpage += "<meta charset='UTF-8'>";
+    if (refreshMode)
+        webpage += "<meta http-equiv='refresh' content='5'>"; // 5-secs refresh time, test needed to prevent auto updates repeating some commands
+                                                              //  webpage += "<script src=\"https://code.jquery.com/jquery-3.2.1.min.js\"></script>";
+    webpage += "<style>";
+    webpage += "body             {width:68em;margin-left:auto;margin-right:auto;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:blue;background-color:#e1e1ff;text-align:center;}";
+    webpage += ".centre          {margin-left:auto;margin-right:auto;}";
+    webpage += "h2               {margin-top:0.3em;margin-bottom:0.3em;font-size:1.4em;}";
+    webpage += "h3               {margin-top:0.3em;margin-bottom:0.3em;font-size:1.2em;}";
+    webpage += "h4               {margin-top:0.3em;margin-bottom:0.3em;font-size:0.8em;}";
+    webpage += ".on              {color: red;}";
+    webpage += ".off             {color: limegreen;}";
+    webpage += ".topnav          {overflow: hidden;background-color:lightcyan;}";
+    webpage += ".topnav a        {float:left;color:blue;text-align:center;padding:1em 1.14em;text-decoration:none;font-size:1.3em;}";
+    webpage += ".topnav a:hover  {background-color:deepskyblue;color:white;}";
+    webpage += ".topnav a.active {background-color:lightblue;color:blue;}";
+    webpage += "table tr, td     {padding:0.2em 0.5em 0.2em 0.5em;font-size:1.0em;font-family:Arial,Helvetica,sans-serif;}";
+    webpage += "col:first-child  {background:lightcyan}col:nth-child(2){background:#CCC}col:nth-child(8){background:#CCC}";
+    webpage += "tr:first-child   {background:lightcyan}";
+    webpage += ".large           {font-size:1.8em;padding:0;margin:0}";
+    webpage += ".medium          {font-size:1.4em;padding:0;margin:0}";
+    webpage += ".ps              {font-size:0.7em;padding:0;margin:0}";
+    webpage += "#outer           {width:100%;display:flex;justify-content:center;}";
+    webpage += "footer           {padding:0.08em;background-color:cyan;font-size:1.1em;}";
+    webpage += ".numberCircle    {border-radius:50%;width:2.7em;height:2.7em;border:0.11em solid blue;padding:0.2em;color:blue;text-align:center;font-size:3em;";
+    webpage += "                  display:inline-flex;justify-content:center;align-items:center;}";
+    webpage += ".wifi            {padding:3px;position:relative;top:1em;left:0.36em;}";
+    webpage += ".wifi, .wifi:before {display:inline-block;border:9px double transparent;border-top-color:currentColor;border-radius:50%;}";
+    webpage += ".wifi:before     {content:'';width:0;height:0;}";
+    webpage += "</style></head>";
+    webpage += "<body>";
+    webpage += "<div class='topnav'>";
+    webpage += "<a href='/'>Status</a>";
+    webpage += "<a href='graphs'>Graph</a>";
+    webpage += "<a href='timer'>Schedule</a>";
+    webpage += "<a href='setup'>Setup</a>";
+    webpage += "<a href='help'>Help</a>";
+    webpage += "<a href=''></a>";
+    webpage += "<a href=''></a>";
+    webpage += "<a href=''></a>";
+    webpage += "<a href=''></a>";
+    webpage += "<div class='wifi'/></div><span>" + WiFiSignal() + "</span>";
+    webpage += "</div><br>";
+}
+//#########################################################################################
+void append_HTML_footer()
+{
+    webpage += "<footer>";
+    webpage += "</footer>";
+    webpage += "</body></html>";
 }
