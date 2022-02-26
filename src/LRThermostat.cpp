@@ -53,10 +53,10 @@ uint32_t dhMinRunTime = 0; // Dehumidifier minimim run time before shutting off
 // if/when you change the mode variable in tcMenu. Order must match!
 typedef enum
 {
-    NO_MODE,
-    HEAT,
-    COOL,
-    DEHUMIDIFY
+    NO_MODE,   // 0
+    HEAT,      // 1
+    COOL,      // 2
+    DEHUMIDIFY // 3
 } MODE;
 MODE mode;
 
@@ -89,6 +89,7 @@ typedef struct
 
 EEPROM_LOCAL_VARS loc;            // local working variables
 EEPROM_LOCAL_VARS chgdVars = {0}; // Changes to be committed
+int16_t *pSetPt = NULL;           // Pointer to current setpoint based upon mode
 
 // Function declarations
 void checkLocalVarChanges();
@@ -118,6 +119,7 @@ void dispFanOff();
 void dispHumiditySmall();
 void dispHumidityBig();
 void dispHumiditySetPt();
+void configEncoderForMode();
 
 // Wifi and web server stuff
 void WifiSetup();
@@ -165,8 +167,7 @@ void setup()
     HEAT(OFF);
 
     // Wifi
-    
-WifiSetup();
+    // WifiSetup();
 }
 
 // Main Arduino control loop
@@ -275,47 +276,6 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 {
     static bool myDispInit = FALSE;
 
-    int16_t *pSetPt = NULL;
-
-    switch (mode)
-    {
-    case HEAT:
-        pSetPt = &loc.heatSetPt;
-        break;
-
-    case COOL:
-        pSetPt = &loc.acSetPt;
-        break;
-
-    case DEHUMIDIFY:
-        pSetPt = &loc.dhSetPt;
-        break;
-
-    case NO_MODE:
-    default:
-        break;
-    }
-
-    // Limit the local & saved setpt values
-    if (pSetPt)
-    {
-        if (*pSetPt > ENC_MAX)
-        {
-            *pSetPt = ENC_MAX;
-        }
-        else if (*pSetPt < 0)
-        {
-            *pSetPt = 0;
-        }
-    }
-
-    // Limit encoder input
-    if (encoderValue > ENC_MAX)
-    {
-        switches.changeEncoderPrecision(999, ENC_MAX);
-        encoderValue = ENC_MAX;
-    }
-
 #if 0
     if (pSetPt)
     {
@@ -332,32 +292,10 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
     // No need to blacken the screen more than once.
     if (myDispInit == FALSE)
     {
-        // The encoderValue seems to change opposite of what I expect, so we
-        // need to convert to the reverse.
-        if (pSetPt)
-        {
-            switches.changeEncoderPrecision(999, ENC_MAX - *pSetPt);
-
-            // TODO: Why is this necessary?
-            encoderValue = ENC_MAX - *pSetPt;
-        }
-
         // Display init
         tft.fillScreen(TFT_BLACK);
 
         myDispInit = TRUE;
-    }
-
-    // Reload menu values
-    if (menuChg)
-    {
-        loadMenuChanges();
-
-        // save menu to EEPROM
-        menuMgr.save(MENU_MAGIC_KEY);
-        EEPROM.commit();
-
-        Serial.printf("Menu data saved, 0x%04X\n", (uint32_t)EEPROM.readUShort(0x0));
     }
 
     // Update setpoint if different; same encoder conversion here
@@ -413,6 +351,17 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 // Go fetch menu values from tcMenu
 void loadMenuChanges()
 {
+    // First, save tcmenu values if changed
+    if (menuChg)
+    {
+        // save menu to EEPROM
+        menuMgr.save(MENU_MAGIC_KEY);
+        EEPROM.commit();
+
+        Serial.printf("Menu data saved, 0x%04X\n", (uint32_t)EEPROM.readUShort(0x0));
+        menuChg = FALSE;
+    }
+
     tempCal = menuTempCal.getLargeNumber()->getAsFloat();
     humdCal = menuHumidityCal.getLargeNumber()->getAsFloat();
     //    baroCal = menuPressureCal.getLargeNumber()->getAsFloat();
@@ -438,8 +387,6 @@ void loadMenuChanges()
     case NO_MODE:
         break;
     }
-
-    menuChg = FALSE;
 }
 
 // Read BME280 sensors. Use an exponential filter to filter out sensor noise.
@@ -607,16 +554,47 @@ void fanControl()
     }
 }
 
+void configEncoderForMode()
+{
+    loadMenuChanges();
+
+    switch (mode)
+    {
+    case HEAT:
+        pSetPt = &loc.heatSetPt;
+        break;
+
+    case COOL:
+        pSetPt = &loc.acSetPt;
+        break;
+
+    case DEHUMIDIFY:
+        pSetPt = &loc.dhSetPt;
+        break;
+
+    case NO_MODE:
+        pSetPt = NULL;
+    default:
+        break;
+    }
+
+    switches.changeEncoderPrecision(ENC_MAX, pSetPt ? ENC_MAX - *pSetPt : 0);
+
+    Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
+}
+
 // This function is called when the menu becomes inactive.
 void myResetCallback()
 {
     renderer.takeOverDisplay(localDisplayFunction);
+    configEncoderForMode();
 }
 
 // The tcMenu callbacks
 void CALLBACK_FUNCTION ExitMenuCallback(int id)
 {
     renderer.takeOverDisplay(localDisplayFunction);
+    configEncoderForMode();
 }
 
 void CALLBACK_FUNCTION ModeCallback(int id)
