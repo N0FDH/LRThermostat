@@ -1,0 +1,6 @@
+
+
+Copy User_Setup.h to your TFT_eSPI library, i.e., starting from this folder,
+
+cp User_Setup.h ../../.pio/libdeps/esp32dev/TFT_eSPI/User_Setup.h
+
