@@ -1,11 +1,11 @@
 #include <Arduino.h>
-#include "LRThermostat_menu.h"
 #include <Adafruit_BME280.h>
 #include <EEPROM.h>
 #include <Filter.h>
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include "WifiCredentials.h"
+#include "LRThermostat_menu.h"
+#include "WifiCredentials.h" // Modify "WifiCredentials.h-template" with your credentials
 
 #define DEBUG 1
 
@@ -27,8 +27,8 @@
 // Logical defines
 #define FALSE 0
 #define TRUE 1
-#define OFF 0
-#define ON 1
+#define OFF FALSE
+#define ON TRUE
 
 // Relay control macros
 #define FAN(a) digitalWrite(FAN_RELAY, ((a) ? (OFF) : (ON)))
@@ -49,8 +49,8 @@ float baroCal = 0.0;       // calibration factor
 float hysteresis;          //  (+/-) hysteresis/2 is centered around the set point.
 uint32_t dhMinRunTime = 0; // Dehumidifier minimim run time before shutting off
 
-// Note: tcMenu does not provide an enums like this. Be sure to update these
-// if/when you change the mode variable in tcMenu. Order must match!
+// Note: tcMenu does not provide enums like this. Be sure to update these
+// if/when you change the 'mode' or 'fan' variable in tcMenu. Order must match!
 typedef enum
 {
     NO_MODE,   // 0
@@ -67,6 +67,14 @@ typedef enum
 } FAN;
 FAN fan;
 // END of tcMenu loaded variables
+
+typedef enum
+{
+    OFF_OFF,
+    OFF_WAIT,
+    ON_ON,
+    ON_WAIT
+} ctlState;
 
 bool ctlState = OFF; // heat/cool/dh state
 bool fanState = OFF; // fan state
@@ -501,7 +509,7 @@ void acControl()
     static bool lastSt = OFF;
     static float lastSet = -1;
 
-    if ((lastSt != ctlState) || (lastSet != set))
+    if ((lastSt != ctlState) || (lastSet != set) || compressorDelay)
     {
         lastSt = ctlState;
         lastSet = set;
@@ -537,7 +545,7 @@ void dehumidifyControl()
     static bool lastSt = OFF;
     static float lastSet = -1;
 
-    if ((lastSt != ctlState) || (lastSet != set))
+    if ((lastSt != ctlState) || (lastSet != set) || compressorDelay || minRunTimeDelay)
     {
         lastSt = ctlState;
         lastSet = set;
@@ -566,7 +574,7 @@ void fanControl()
 
 void configEncoderForMode()
 {
-    loadMenuChanges();  // We need to know if 'mode' has changed
+    loadMenuChanges(); // We need to know if 'mode' has changed
 
     switch (mode)
     {
@@ -654,18 +662,6 @@ void CALLBACK_FUNCTION TempHysteresisCallback(int id)
 {
     float val = menuTempHysteresis.getLargeNumber()->getAsFloat();
     Serial.printf("HeatHys: %0.2f\n", val);
-
-#if 0
-    char *pN = (char *)menuTempHysteresis.getLargeNumber();
- 
-    int i;
-    for (i=0; i<32; i++)
-    {
-        Serial.printf("%02X ", pN[i]);
-    }
-    Serial.println();
-#endif
-
     menuChg = TRUE;
 }
 
@@ -865,30 +861,20 @@ void WifiSetup()
 }
 
 //#########################################################################################
-#if 0
-String WiFiSignal()
-{
-    float Signal = WiFi.RSSI();
-    Signal = 90 / 40.0 * Signal + 212.5; // From Signal = 100% @ -50dBm and Signal = 10% @ -90dBm and y = mx + c
-    if (Signal > 100)
-        Signal = 100;
-    return " " + String(Signal, 0) + "%";
-}
-#else
-    // https://www.intuitibits.com/2016/03/23/dbm-to-percent-conversion/
+// https://www.intuitibits.com/2016/03/23/dbm-to-percent-conversion/
 String WiFiSignal(void)
 {
     const unsigned char dBm2Percent[74] =
-    {
-        100, 99, 99, 99, 98, 98, 98, 97, 97, 96, // -20 .. -29
-        96, 95, 95, 94, 93, 93, 92, 91, 90, 90,  // -30 .. -39
-        89, 88, 87, 86, 85, 84, 83, 82, 81, 80,  // -40 .. -49
-        79, 78, 76, 75, 74, 73, 71, 70, 69, 67,  // -50 .. -59
-        66, 64, 63, 61, 60, 58, 56, 55, 53, 51,  // -60 .. -69
-        50, 48, 46, 44, 42, 40, 38, 36, 34, 32,  // -70 .. -79
-        30, 28, 26, 24, 22, 20, 17, 15, 13, 10,  // -80 .. -89
-        8, 6, 3, 1                               // -90 .. -93
-    };
+        {
+            100, 99, 99, 99, 98, 98, 98, 97, 97, 96, // -20 .. -29
+            96, 95, 95, 94, 93, 93, 92, 91, 90, 90,  // -30 .. -39
+            89, 88, 87, 86, 85, 84, 83, 82, 81, 80,  // -40 .. -49
+            79, 78, 76, 75, 74, 73, 71, 70, 69, 67,  // -50 .. -59
+            66, 64, 63, 61, 60, 58, 56, 55, 53, 51,  // -60 .. -69
+            50, 48, 46, 44, 42, 40, 38, 36, 34, 32,  // -70 .. -79
+            30, 28, 26, 24, 22, 20, 17, 15, 13, 10,  // -80 .. -89
+            8, 6, 3, 1                               // -90 .. -93
+        };
 
     int sig = (int)WiFi.RSSI();
     int percent = 0; // no signal if not modified below
@@ -907,7 +893,6 @@ String WiFiSignal(void)
     }
     return String(percent) + "%";
 }
-#endif
 
 //#########################################################################################
 void SetupWebpageHandlers()
