@@ -10,14 +10,16 @@
 #define DEBUG 1
 
 // Hardware definitions
-#define FAN_RELAY 16  // GPIO
-#define HEAT_RELAY 17 // GPIO
+#define FAN_RELAY 16        // GPIO
+#define HEAT_RELAY 17       // GPIO
+#define AC_RELAY HEAT_RELAY // GPIO
+#define DH_RELAY HEAT_RELAY // GPIO
 
 // Misc defines
 #define MENU_MAGIC_KEY 0xB00B
 #define EEPROM_LOCAL_VAR_ADDR 0x100 // Leave the lower half for menu storage
 #define INACTIVITY_TIMEOUT 10000    // 10000 mS = 10 sec
-#define COMPRESSOR_DELAY (5 * 60)   // 5 minutes (counted in seconds)
+#define COMPRESSOR_DELAY 45         //TODO: (5 * 60)   // 5 minutes (counted in seconds)
 #define LOOP_1_SEC 1000             // 1000 mS = 1 sec
 
 #define DH_MIN_RUN_TIME (30 * 60 * 1000) // min * 60 sec/min * 1000 mS/s
@@ -33,6 +35,8 @@
 // Relay control macros
 #define FAN(a) digitalWrite(FAN_RELAY, ((a) ? (OFF) : (ON)))
 #define HEAT(a) digitalWrite(HEAT_RELAY, ((a) ? (OFF) : (ON)))
+#define COOL(a) digitalWrite(AC_RELAY, ((a) ? (OFF) : (ON)))
+#define DH(a) digitalWrite(DH_RELAY, ((a) ? (OFF) : (ON)))
 
 // Temp/humidity/pressure sensor - BME280
 Adafruit_BME280 bme;
@@ -68,16 +72,9 @@ typedef enum
 FAN fan;
 // END of tcMenu loaded variables
 
-typedef enum
-{
-    OFF_OFF,
-    OFF_WAIT,
-    ON_ON,
-    ON_WAIT
-} ctlState;
-
 bool ctlState = OFF; // heat/cool/dh state
 bool fanState = OFF; // fan state
+bool wait = FALSE;   // either compressor delay or min run time delay
 
 bool menuChg = FALSE;       // tcMenu variable change flag (to signal save to EEPROm needed)
 uint32_t lclVarChgTime = 0; // local variable change falg
@@ -121,9 +118,11 @@ void dispTempSetPt();
 void dispAcSetPt();
 void dispCoolOn();
 void dispCoolOff();
+void dispCoolWait();
 void dispHeatOn();
 void dispHeatOff();
 void dispDhOn();
+void dispDhWait();
 void dispDhOff();
 void dispModeOff();
 void dispFanOn();
@@ -336,14 +335,37 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
         dispMainTemp();
         dispHumiditySmall();
         dispAcSetPt();
-        (ctlState == ON) ? dispCoolOn() : dispCoolOff();
+
+        if (ctlState == OFF)
+        {
+            if (wait)
+            {
+                dispCoolWait();
+            }
+            else
+            {
+                dispCoolOff();
+            }
+        }
+        else if (ctlState == ON)
+        {
+            dispCoolOn();
+        }
         break;
 
     case DEHUMIDIFY:
         dispTempSmall();
         dispHumidityBig();
         dispHumiditySetPt();
-        (ctlState == ON) ? dispDhOn() : dispDhOff();
+
+        if (ctlState == OFF)
+        {
+            wait ? dispDhWait() : dispDhOff();
+        }
+        else if (ctlState == ON)
+        {
+            wait ? dispDhWait() : dispDhOn();
+        }
         break;
 
     default:
@@ -492,17 +514,23 @@ void acControl()
     if ((ctlState == ON) && (curTemp < (set - hysteresis)))
     {
         ctlState = OFF;
-        HEAT(OFF);
+        COOL(OFF);
         compressorDelay = COMPRESSOR_DELAY;
     }
-    else if ((ctlState == OFF) && (curTemp > (set + hysteresis)) && (compressorDelay == 0))
+    else if ((ctlState == OFF) && (curTemp > (set + hysteresis)))
     {
-        ctlState = ON;
-        HEAT(ON);
+        wait = (compressorDelay != 0);
+
+        if (!wait)
+        {
+            ctlState = ON;
+            COOL(ON);
+        }
     }
     else
     {
         // You're in-between, do nothing
+        wait = 0;
     }
 
 #if DEBUG
@@ -524,21 +552,32 @@ void dehumidifyControl()
 {
     float set = loc.dhSetPt;
 
-    if ((ctlState == ON) && (curHumd < (set - hysteresis)) && (minRunTimeDelay == 0))
+    if ((ctlState == ON) && (curHumd < (set - hysteresis)))
     {
-        ctlState = OFF;
-        HEAT(OFF); // DH uses the heat relay
-        compressorDelay = COMPRESSOR_DELAY;
+        wait = (minRunTimeDelay != 0);
+
+        if (!wait)
+        {
+            ctlState = OFF;
+            DH(OFF);
+            compressorDelay = COMPRESSOR_DELAY;
+        }
     }
-    else if ((ctlState == OFF) && (curHumd > (set + hysteresis)) && (compressorDelay == 0))
+    else if ((ctlState == OFF) && (curHumd > (set + hysteresis)))
     {
-        ctlState = ON;
-        HEAT(ON);
-        minRunTimeDelay = dhMinRunTime;
+        wait = (compressorDelay != 0);
+
+        if (!wait)
+        {
+            ctlState = ON;
+            DH(ON);
+            minRunTimeDelay = dhMinRunTime;
+        }
     }
     else
     {
         // You're in-between, do nothing
+        wait = 0;
     }
 
 #if DEBUG
@@ -739,14 +778,21 @@ void dispCoolOff()
 {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("COOL    ", 8, 115, 1);
-    tft.drawString("OFF", 8, 105, 1);
+    tft.drawString("OFF ", 8, 105, 1);
+}
+
+void dispCoolWait()
+{
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString("COOL    ", 8, 115, 1);
+    tft.drawString("WAIT", 8, 105, 1);
 }
 
 void dispCoolOn()
 {
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
     tft.drawString("COOL    ", 8, 115, 1);
-    tft.drawString("ON ", 8, 105, 1);
+    tft.drawString("ON  ", 8, 105, 1);
 }
 
 void dispHeatOff()
@@ -767,14 +813,21 @@ void dispDhOff()
 {
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("DEHUMIDIFY", 8, 115, 1);
-    tft.drawString("OFF", 8, 105, 1);
+    tft.drawString("OFF ", 8, 105, 1);
+}
+
+void dispDhWait()
+{
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString("DEHUMIDIFY", 8, 115, 1);
+    tft.drawString("WAIT", 8, 105, 1);
 }
 
 void dispDhOn()
 {
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
     tft.drawString("DEHUMIDIFY", 8, 115, 1);
-    tft.drawString("ON ", 8, 105, 1);
+    tft.drawString("ON  ", 8, 105, 1);
 }
 
 void dispModeOff()
