@@ -62,7 +62,7 @@ typedef enum
     COOL,      // 2
     DEHUMIDIFY // 3
 } MODE;
-MODE mode;
+MODE mode, lastMode;
 
 typedef enum
 {
@@ -110,6 +110,8 @@ void acControl();
 void dehumidifyControl();
 void fanControl();
 void myResetCallback();
+void configEncoderForMode();
+void shutDownPrevMode();
 
 // display func declarations
 void dispMainTemp();
@@ -130,7 +132,6 @@ void dispFanOff();
 void dispHumiditySmall();
 void dispHumidityBig();
 void dispHumiditySetPt();
-void configEncoderForMode();
 
 // Wifi and web server stuff
 AsyncWebServer server(80);
@@ -385,6 +386,8 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
         tft.setTextSize(1); // be sure to set back to default
         renderer.giveBackDisplay();
         myDispInit = FALSE;
+
+        lastMode = mode;
     }
 }
 
@@ -641,18 +644,47 @@ void configEncoderForMode()
     Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
 }
 
+void shutDownPrevMode()
+{
+    // Shut down previous mode
+    if (lastMode != mode)
+    {
+        ctlState = OFF;
+        switch (lastMode)
+        {
+        case HEAT:
+            HEAT(OFF);
+            break;
+
+        case COOL:
+            COOL(OFF);
+            break;
+
+        case DEHUMIDIFY:
+            DH(OFF);
+            break;
+
+        case NO_MODE:
+        default:
+            break;
+        }
+    }
+}
+
 // This function is called when the menu becomes inactive.
 void myResetCallback()
 {
     renderer.takeOverDisplay(localDisplayFunction);
     configEncoderForMode();
-}
+    shutDownPrevMode();
+} 
 
 // The tcMenu callbacks
 void CALLBACK_FUNCTION ExitMenuCallback(int id)
 {
     renderer.takeOverDisplay(localDisplayFunction);
     configEncoderForMode();
+    shutDownPrevMode();
 }
 
 void CALLBACK_FUNCTION ModeCallback(int id)
