@@ -1,3 +1,8 @@
+// Copyright © 2022 Randy Rysavy <randy.rysavy@gmail.com>
+// This work is free. You can redistribute it and/or modify it under the
+// terms of the Do What The Fuck You Want To Public License, Version 2,
+// as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
+
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
 #include <EEPROM.h>
@@ -19,7 +24,7 @@
 #define MENU_MAGIC_KEY 0xB00B
 #define EEPROM_LOCAL_VAR_ADDR 0x100 // Leave the lower half for menu storage
 #define INACTIVITY_TIMEOUT 10000    // 10000 mS = 10 sec
-#define COMPRESSOR_DELAY 45         //TODO: (5 * 60)   // 5 minutes (counted in seconds)
+#define COMPRESSOR_DELAY 45         // TODO: (5 * 60)   // 5 minutes (counted in seconds)
 #define LOOP_1_SEC 1000             // 1000 mS = 1 sec
 
 #define DH_MIN_RUN_TIME (30 * 60 * 1000) // min * 60 sec/min * 1000 mS/s
@@ -111,6 +116,7 @@ void dehumidifyControl();
 void fanControl();
 void myResetCallback();
 void configEncoderForMode();
+void takeOverDisplay();
 void shutDownPrevMode();
 
 // display func declarations
@@ -646,107 +652,99 @@ void configEncoderForMode()
 
 void shutDownPrevMode()
 {
-    // Shut down previous mode
+    // Shut down previous mode if different
     if (lastMode != mode)
     {
         ctlState = OFF;
-        switch (lastMode)
-        {
-        case HEAT:
-            HEAT(OFF);
-            break;
 
-        case COOL:
-            COOL(OFF);
-            break;
-
-        case DEHUMIDIFY:
-            DH(OFF);
-            break;
-
-        case NO_MODE:
-        default:
-            break;
-        }
+        // All relays off
+        HEAT(OFF);
+        COOL(OFF);
+        DH(OFF);
     }
+}
+
+void takeOverDisplay()
+{
+    shutDownPrevMode();
+    configEncoderForMode();
+    renderer.takeOverDisplay(localDisplayFunction);
 }
 
 // This function is called when the menu becomes inactive.
 void myResetCallback()
 {
-    renderer.takeOverDisplay(localDisplayFunction);
-    configEncoderForMode();
-    shutDownPrevMode();
-} 
+    takeOverDisplay();
+}
 
 // The tcMenu callbacks
 void CALLBACK_FUNCTION ExitMenuCallback(int id)
 {
-    renderer.takeOverDisplay(localDisplayFunction);
-    configEncoderForMode();
-    shutDownPrevMode();
+    takeOverDisplay();
 }
 
+// The rest of these callbacks exist primarily to indicate that a menu
+// item has been changed, so we know when to save to EEPROM.
 void CALLBACK_FUNCTION ModeCallback(int id)
 {
     int32_t val = menuModeEnum.getCurrentValue();
-    Serial.printf("Mode: %d\n", val);
+    Serial.printf("CB - Mode: %d\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION FanCallback(int id)
 {
     int32_t val = menuFanEnum.getCurrentValue();
-    Serial.printf("Fan: %d\n", val);
+    Serial.printf("CB - Fan: %d\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION MinRunTimeCallback(int id)
 {
     float val = menuMinRunTime.getAsFloatingPointValue();
-    Serial.printf("DhMinT: %0.1f\n", val);
+    Serial.printf("CB - DhMinT: %0.1f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION HumidityCalCallback(int id)
 {
     float val = menuHumidityCal.getLargeNumber()->getAsFloat();
-    Serial.printf("DhCal: %0.2f\n", val);
+    Serial.printf("CB - DhCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION HumdHysteresisCallback(int id)
 {
     float val = menuHumdHysteresis.getLargeNumber()->getAsFloat();
-    Serial.printf("DhHys: %0.2f\n", val);
+    Serial.printf("CB - DhHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION TempCalCallback(int id)
 {
     float val = menuTempCal.getLargeNumber()->getAsFloat();
-    Serial.printf("HeatCal: %0.2f\n", val);
+    Serial.printf("CB - HeatCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION TempHysteresisCallback(int id)
 {
     float val = menuTempHysteresis.getLargeNumber()->getAsFloat();
-    Serial.printf("HeatHys: %0.2f\n", val);
+    Serial.printf("CB - HeatHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION CoolingCalCallback(int id)
 {
     float val = menuCoolingCal.getLargeNumber()->getAsFloat();
-    Serial.printf("CoolCal: %0.2f\n", val);
+    Serial.printf("CB - CoolCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION CoolingHysteresisCallback(int id)
 {
     float val = menuCoolingHysteresis.getLargeNumber()->getAsFloat();
-    Serial.printf("CoolHys: %0.2f\n", val);
+    Serial.printf("CB - CoolHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
