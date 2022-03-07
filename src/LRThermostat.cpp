@@ -59,7 +59,7 @@ float hysteresis;          //  (+/-) hysteresis/2 is centered around the set poi
 uint32_t dhMinRunTime = 0; // Dehumidifier minimim run time before shutting off
 
 // Note: tcMenu does not provide enums like this. Be sure to update these
-// if/when you change the 'mode' or 'fan' variable in tcMenu. Orders must match!
+// if/when you change the 'mode' or 'fan' variable in tcMenu. Order must match!
 typedef enum
 {
     NO_MODE,   // 0
