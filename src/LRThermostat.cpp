@@ -3,14 +3,18 @@
 // terms of the Do What The Fuck You Want To Public License, Version 2,
 // as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
 
+// Features to add / bugs to fix
+// 1) on time counters for all modes
+// 2) An 'eject' like menu item that saves NVM stuff before power down
+// 3) A way to clear the mode time counters
+
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
 #include <EEPROM.h>
 #include <Filter.h>
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
+#include <time.h>
+#include "LRThermostat.h"
 #include "LRThermostat_menu.h"
-#include "WifiCredentials.h" // Modify "WifiCredentials.h-template" with your credentials
 
 #define DEBUG 1
 
@@ -22,20 +26,12 @@
 
 // Misc defines
 #define MENU_MAGIC_KEY 0xB00B
-#define EEPROM_LOCAL_VAR_ADDR 0x100 // Leave the lower half for menu storage
-#define INACTIVITY_TIMEOUT 10000    // 10000 mS = 10 sec
-#define COMPRESSOR_DELAY 45         // TODO: (5 * 60)   // 5 minutes (counted in seconds)
-#define LOOP_1_SEC 1000             // 1000 mS = 1 sec
-
-#define DH_MIN_RUN_TIME (30 * 60 * 1000) // min * 60 sec/min * 1000 mS/s
-                                         // Dehumidifier minimum run time once
-                                         // switched on, to avoid short cycling.
-
-// Logical defines
-#define FALSE 0
-#define TRUE 1
-#define OFF FALSE
-#define ON TRUE
+#define EEPROM_LOCAL_VAR_ADDR 0x100    // Leave the lower half for menu storage
+#define INACTIVITY_TIMEOUT 10000       // 10000 mS = 10 sec
+#define COMPRESSOR_DELAY 45            // TODO: (5 * 60)   // 5 minutes (counted in seconds)
+#define LOOP_1_SEC 1000                // 1000 mS = 1 sec
+#define T24_HOURS_IN_SEC 60            // (3600 * 24)
+#define UINT32_ERASED_VALUE 0xFFFFFFFF // erased value in eeprom/flash
 
 // Relay control macros
 #define FAN(a) digitalWrite(FAN_RELAY, ((a) ? (OFF) : (ON)))
@@ -58,23 +54,8 @@ float baroCal = 0.0;       // calibration factor
 float hysteresis;          //  (+/-) hysteresis/2 is centered around the set point.
 uint32_t dhMinRunTime = 0; // Dehumidifier minimim run time before shutting off
 
-// Note: tcMenu does not provide enums like this. Be sure to update these
-// if/when you change the 'mode' or 'fan' variable in tcMenu. Order must match!
-typedef enum
-{
-    NO_MODE,   // 0
-    HEAT,      // 1
-    COOL,      // 2
-    DEHUMIDIFY // 3
-} MODE;
-MODE mode, lastMode;
-
-typedef enum
-{
-    FAN_ON,
-    FAN_AUTO
-} FAN;
-FAN fan;
+MODE mode, lastMode; // Current mode and last mode
+FAN fan;             // fan state
 // END of tcMenu loaded variables
 
 bool ctlState = OFF; // heat/cool/dh state
@@ -87,23 +68,11 @@ uint32_t lclVarChgTime = 0; // local variable change falg
 uint32_t compressorDelay = COMPRESSOR_DELAY; // in cooling and dh modes, wait 5 min before restarting after last time
                                              // it was shut off. Same delay at boot up of thermostat.
 uint32_t minRunTimeDelay = 0;                // Dehumidifier min runtime countdown
+int16_t *pSetPt = NULL;                      // Pointer to current setpoint based upon mode
 
 // The local variables that are backed up in EEPROM
-typedef struct
-{
-    int16_t heatSetPt; // heat  0-100 is range for all setPts
-    int16_t acSetPt;   // A/C
-    int16_t dhSetPt;   // dehumidifier
-    int16_t pad0;      // pad out to 4 bytes
-} EEPROM_LOCAL_VARS;
-
 EEPROM_LOCAL_VARS loc;            // local working variables
 EEPROM_LOCAL_VARS chgdVars = {0}; // Changes to be committed
-int16_t *pSetPt = NULL;           // Pointer to current setpoint based upon mode
-
-// TODO: I don't care for this much...
-String webpage = ""; // General purpose variable to hold HTML code for display
-String sitetitle = "LR Thermostat";
 
 // Function declarations
 void checkLocalVarChanges();
@@ -139,14 +108,8 @@ void dispHumiditySmall();
 void dispHumidityBig();
 void dispHumiditySetPt();
 
-// Wifi and web server stuff
-AsyncWebServer server(80);
-void WifiSetup();
-void SetupTime();
-void SetupWebpageHandlers();
-void append_HTML_header(bool refreshMode);
-void append_HTML_footer();
-void Homepage();
+void setupTime();
+void printLocalTime();
 
 // Main Arduino setup function
 void setup()
@@ -180,9 +143,29 @@ void setup()
     menuMgr.load(MENU_MAGIC_KEY);
     loadMenuChanges();
 
+    // Read up nvm local variables
     // Should really check return code here...
     EEPROM.readBytes(EEPROM_LOCAL_VAR_ADDR, &loc, sizeof(EEPROM_LOCAL_VARS));
     Serial.printf("Menu+local data restored, 0x%04X\n", (uint32_t)EEPROM.readUShort(0x0));
+
+    // Update boot related items in nvm. These changes will get pushed to EEPROM by
+    // checkLocalVarChanges() in the main loop.
+    loc.powerCycleCnt++;
+    loc.bootTime = 0; // set to zero now, will update ASAP
+
+    // Initialize the on time counters
+    if (loc.heatSeconds == UINT32_ERASED_VALUE)
+    {
+        loc.heatSeconds = 0;
+    }
+    if (loc.coolSeconds == UINT32_ERASED_VALUE)
+    {
+        loc.coolSeconds = 0;
+    }
+    if (loc.dhSeconds == UINT32_ERASED_VALUE)
+    {
+        loc.dhSeconds = 0;
+    }
 
     // Setup the rest of the hardware
     pinMode(FAN_RELAY, OUTPUT);
@@ -191,14 +174,21 @@ void setup()
     HEAT(OFF);
 
     // Wifi
-    WifiSetup();
+    wifiSetup();
+
+    // Get time
+    setupTime();
 }
 
 // Main Arduino control loop
 void loop()
 {
     uint32_t time1sec = 0;
+    uint32_t time24hr = T24_HOURS_IN_SEC; // countdown
     uint32_t curTime;
+    uint32_t heatSeconds = 0;
+    uint32_t coolSeconds = 0;
+    uint32_t dhSeconds = 0;
 
     while (1)
     {
@@ -220,14 +210,26 @@ void loop()
             {
             case HEAT:
                 heatControl();
+                if (ctlState == ON)
+                {
+                    heatSeconds++;
+                }
                 break;
 
             case DEHUMIDIFY:
                 dehumidifyControl();
+                if (ctlState == ON)
+                {
+                    coolSeconds++;
+                }
                 break;
 
             case COOL:
                 acControl();
+                if (ctlState == ON)
+                {
+                    dhSeconds++;
+                }
                 break;
 
             case NO_MODE:
@@ -254,6 +256,39 @@ void loop()
             // Check for local var changes that need EEPROM update
             checkLocalVarChanges();
 
+            if (loc.bootTime == 0)
+            {
+                time_t now;
+                time(&now);
+
+                if (now > 1600000000) // 9/13/2020 12:26:40 in case you are wondering :)
+                {
+                    loc.bootTime = now;
+                    Serial.printf("boot at %u\n", loc.bootTime);
+                    Serial.printf("heat on %u\n", loc.heatSeconds);
+                    Serial.printf("ac on   %u\n", loc.coolSeconds);
+                    Serial.printf("dh on   %u\n", loc.dhSeconds);
+                }
+            }
+
+            // Once every 24 hours, add in the control usage seconds.
+            // This is to minimize writes to the EEPROM.
+            if (--time24hr == 0)
+            {
+                time24hr = T24_HOURS_IN_SEC;
+
+                Serial.printf("heat on %u, %u\n", heatSeconds, loc.heatSeconds);
+                Serial.printf("ac on   %u, %u\n", coolSeconds, loc.coolSeconds);
+                Serial.printf("dh on   %u, %u\n", dhSeconds, loc.dhSeconds);
+                loc.heatSeconds += heatSeconds;
+                loc.coolSeconds += coolSeconds;
+                loc.dhSeconds += dhSeconds;
+                heatSeconds = 0;
+                coolSeconds = 0;
+                dhSeconds = 0;
+
+                // the loc vars get committed to EPROM above
+            }
         } // end of 1 sec loop
 
         // Save local vars if inactivity timeout
@@ -921,176 +956,13 @@ void dispTempSmall()
     tft.drawString(" o", 145, 6, 1);
 }
 
-//#########################################################################################
-void WifiSetup()
+//*********************************************************************************************
+const char *timeZone = "CST6CDT,M3.2.0,M11.1.0";
+const char *ntpServer1 = "pool.ntp.org";
+const char *ntpServer2 = "time.nist.gov";
+
+void setupTime()
 {
-    Serial.printf("Connecting to: %s\n", ssid);
-    WiFi.disconnect();
-    WiFi.mode(WIFI_STA); // switch off AP
-    WiFi.setAutoConnect(true);
-    WiFi.setAutoReconnect(true);
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        Serial.print(".");
-        delay(100);
-    }
-    Serial.println("\nWiFi connected, IP = " + WiFi.localIP().toString());
-
-    SetupWebpageHandlers();
-    server.begin();
-
-    Serial.println("Web server started.");
-}
-
-//#########################################################################################
-// https://www.intuitibits.com/2016/03/23/dbm-to-percent-conversion/
-String WiFiSignal(void)
-{
-    const unsigned char dBm2Percent[74] =
-        {
-            100, 99, 99, 99, 98, 98, 98, 97, 97, 96, // -20 .. -29
-            96, 95, 95, 94, 93, 93, 92, 91, 90, 90,  // -30 .. -39
-            89, 88, 87, 86, 85, 84, 83, 82, 81, 80,  // -40 .. -49
-            79, 78, 76, 75, 74, 73, 71, 70, 69, 67,  // -50 .. -59
-            66, 64, 63, 61, 60, 58, 56, 55, 53, 51,  // -60 .. -69
-            50, 48, 46, 44, 42, 40, 38, 36, 34, 32,  // -70 .. -79
-            30, 28, 26, 24, 22, 20, 17, 15, 13, 10,  // -80 .. -89
-            8, 6, 3, 1                               // -90 .. -93
-        };
-
-    int sig = (int)WiFi.RSSI();
-    int percent = 0; // no signal if not modified below
-
-    if (sig > -20)
-    {
-        percent = 100;
-    }
-    else if (sig >= -93)
-    {
-        percent = dBm2Percent[(-20) - sig];
-    }
-    else if (sig >= -100)
-    {
-        percent = 1;
-    }
-    return String(percent) + "%";
-}
-
-//#########################################################################################
-void SetupWebpageHandlers()
-{
-    // Set handler for '/'
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-              { request->redirect("/homepage"); });
-
-    // Set handler for '/homepage'
-    server.on("/homepage", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-    Homepage();
-    request->send(200, "text/html", webpage); });
-}
-
-//#########################################################################################
-void Homepage()
-{
-    Serial.println("In Homepage()");
-
-    uint16_t setPt = 0;
-    switch (mode)
-    {
-    case HEAT:
-        setPt = loc.heatSetPt;
-        break;
-
-    case COOL:
-        setPt = loc.acSetPt;
-        break;
-
-    case DEHUMIDIFY:
-        setPt = loc.dhSetPt;
-        break;
-
-    case NO_MODE:
-    default:
-        break;
-    }
-
-    append_HTML_header(20);
-    webpage += "<h2>Smart Thermostat Status</h2><br>";
-    //    webpage += "<div class='numberCircle'><span class=" + String((RelayState == "ON" ? "'on'>" : "'off'>")) + String(Temperature, 1) + "&deg;</span></div><br><br><br>";
-    webpage += "<table class='centre'>";
-    webpage += "<tr>";
-    webpage += "<td>Temperature</td>";
-    webpage += "<td>Humidity</td>";
-    webpage += "<td>Target Temperature</td>";
-    webpage += "<td>Thermostat Status</td>";
-    webpage += "<td>Schedule Status</td>";
-    webpage += "</tr>";
-    webpage += "<tr>";
-    webpage += "<td class='large'>" + String(curTemp, 1) + "&deg;</td>";
-    webpage += "<td class='large'>" + String(curHumd, 0) + "%</td>";
-    webpage += "<td class='large'>" + String((float)setPt, 1) + "&deg;</td>";
-    webpage += "</tr>";
-    webpage += "</table>";
-    webpage += "<br>";
-    append_HTML_footer();
-}
-
-//#########################################################################################
-void append_HTML_header(bool refreshMode)
-{
-    webpage = "<!DOCTYPE html><html lang='en'>";
-    webpage += "<head>";
-    webpage += "<title>" + sitetitle + "</title>";
-    webpage += "<meta charset='UTF-8'>";
-    if (refreshMode)
-        webpage += "<meta http-equiv='refresh' content='5'>"; // 5-secs refresh time, test needed to prevent auto updates repeating some commands
-                                                              //  webpage += "<script src=\"https://code.jquery.com/jquery-3.2.1.min.js\"></script>";
-    webpage += "<style>";
-    webpage += "body             {width:68em;margin-left:auto;margin-right:auto;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:blue;background-color:#e1e1ff;text-align:center;}";
-    webpage += ".centre          {margin-left:auto;margin-right:auto;}";
-    webpage += "h2               {margin-top:0.3em;margin-bottom:0.3em;font-size:1.4em;}";
-    webpage += "h3               {margin-top:0.3em;margin-bottom:0.3em;font-size:1.2em;}";
-    webpage += "h4               {margin-top:0.3em;margin-bottom:0.3em;font-size:0.8em;}";
-    webpage += ".on              {color: red;}";
-    webpage += ".off             {color: limegreen;}";
-    webpage += ".topnav          {overflow: hidden;background-color:lightcyan;}";
-    webpage += ".topnav a        {float:left;color:blue;text-align:center;padding:1em 1.14em;text-decoration:none;font-size:1.3em;}";
-    webpage += ".topnav a:hover  {background-color:deepskyblue;color:white;}";
-    webpage += ".topnav a.active {background-color:lightblue;color:blue;}";
-    webpage += "table tr, td     {padding:0.2em 0.5em 0.2em 0.5em;font-size:1.0em;font-family:Arial,Helvetica,sans-serif;}";
-    webpage += "col:first-child  {background:lightcyan}col:nth-child(2){background:#CCC}col:nth-child(8){background:#CCC}";
-    webpage += "tr:first-child   {background:lightcyan}";
-    webpage += ".large           {font-size:1.8em;padding:0;margin:0}";
-    webpage += ".medium          {font-size:1.4em;padding:0;margin:0}";
-    webpage += ".ps              {font-size:0.7em;padding:0;margin:0}";
-    webpage += "#outer           {width:100%;display:flex;justify-content:center;}";
-    webpage += "footer           {padding:0.08em;background-color:cyan;font-size:1.1em;}";
-    webpage += ".numberCircle    {border-radius:50%;width:2.7em;height:2.7em;border:0.11em solid blue;padding:0.2em;color:blue;text-align:center;font-size:3em;";
-    webpage += "                  display:inline-flex;justify-content:center;align-items:center;}";
-    webpage += ".wifi            {padding:3px;position:relative;top:1em;left:0.36em;}";
-    webpage += ".wifi, .wifi:before {display:inline-block;border:9px double transparent;border-top-color:currentColor;border-radius:50%;}";
-    webpage += ".wifi:before     {content:'';width:0;height:0;}";
-    webpage += "</style></head>";
-    webpage += "<body>";
-    webpage += "<div class='topnav'>";
-    webpage += "<a href='/'>Status</a>";
-    webpage += "<a href='graphs'>Graph</a>";
-    webpage += "<a href='timer'>Schedule</a>";
-    webpage += "<a href='setup'>Setup</a>";
-    webpage += "<a href='help'>Help</a>";
-    webpage += "<a href=''></a>";
-    webpage += "<a href=''></a>";
-    webpage += "<a href=''></a>";
-    webpage += "<a href=''></a>";
-    webpage += "<div class='wifi'/></div><span>" + WiFiSignal() + "</span>";
-    webpage += "</div><br>";
-}
-//#########################################################################################
-void append_HTML_footer()
-{
-    webpage += "<footer>";
-    webpage += "</footer>";
-    webpage += "</body></html>";
+    // init and get the time
+    configTzTime(timeZone, ntpServer1, ntpServer2);
 }
