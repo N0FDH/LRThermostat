@@ -4,9 +4,12 @@
 // as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
 
 // Features to add / bugs to fix
-// 1) on time counters for all modes
-// 2) An 'eject' like menu item that saves NVM stuff before power down
-// 3) A way to clear the mode time counters
+// 1) clean up and break out "on time" counters
+// 2) A way to clear the "on time" counters
+// 3) An 'eject' like menu item that saves NVM stuff before power down
+// 4) Write main HTML status page including uptime and "on times"
+// 5) DONE - Change dehumidifier hysteresis so that it is +1N/-0N instead +0.5N/-0.5N.
+//    We want to shut off at the specified humidity level.
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -28,9 +31,9 @@
 #define MENU_MAGIC_KEY 0xB00B
 #define EEPROM_LOCAL_VAR_ADDR 0x100    // Leave the lower half for menu storage
 #define INACTIVITY_TIMEOUT 10000       // 10000 mS = 10 sec
-#define COMPRESSOR_DELAY 45            // TODO: (5 * 60)   // 5 minutes (counted in seconds)
+#define COMPRESSOR_DELAY (5 * 60)      // 5 minutes (counted in seconds)
 #define LOOP_1_SEC 1000                // 1000 mS = 1 sec
-#define T24_HOURS_IN_SEC 60            // (3600 * 24)
+#define T6_HOURS_IN_SEC (6 * 3600)     // 6 hours (counted in seconds)
 #define UINT32_ERASED_VALUE 0xFFFFFFFF // erased value in eeprom/flash
 
 // Relay control macros
@@ -51,7 +54,7 @@ float curBaro = 0; // BME280
 float tempCal = 0.0;       // calibration factor
 float humdCal = 0.0;       // calibration factor
 float baroCal = 0.0;       // calibration factor
-float hysteresis;          //  (+/-) hysteresis/2 is centered around the set point.
+float hysteresis;          //  (+/-) hysteresis/2 is centered around the set point (except for dh).
 uint32_t dhMinRunTime = 0; // Dehumidifier minimim run time before shutting off
 
 MODE mode, lastMode; // Current mode and last mode
@@ -109,7 +112,6 @@ void dispHumidityBig();
 void dispHumiditySetPt();
 
 void setupTime();
-void printLocalTime();
 
 // Main Arduino setup function
 void setup()
@@ -184,7 +186,7 @@ void setup()
 void loop()
 {
     uint32_t time1sec = 0;
-    uint32_t time24hr = T24_HOURS_IN_SEC; // countdown
+    uint32_t time6hr = T6_HOURS_IN_SEC; // countdown
     uint32_t curTime;
     uint32_t heatSeconds = 0;
     uint32_t coolSeconds = 0;
@@ -261,7 +263,7 @@ void loop()
                 time_t now;
                 time(&now);
 
-                if (now > 1600000000) // 9/13/2020 12:26:40 in case you are wondering :)
+                if (now > 1600000000) // "9/13/2020 12:26:40" in case you are wondering :)
                 {
                     loc.bootTime = now;
                     Serial.printf("boot at %u\n", loc.bootTime);
@@ -271,11 +273,11 @@ void loop()
                 }
             }
 
-            // Once every 24 hours, add in the control usage seconds.
-            // This is to minimize writes to the EEPROM.
-            if (--time24hr == 0)
+            // Once every 6 hours, add in the control usage seconds.
+            // This is delayed to minimize writes to the EEPROM.
+            if (--time6hr == 0)
             {
-                time24hr = T24_HOURS_IN_SEC;
+                time6hr = T6_HOURS_IN_SEC;
 
                 Serial.printf("heat on %u, %u\n", heatSeconds, loc.heatSeconds);
                 Serial.printf("ac on   %u, %u\n", coolSeconds, loc.coolSeconds);
@@ -464,7 +466,8 @@ void loadMenuChanges()
         break;
 
     case DEHUMIDIFY:
-        hysteresis = menuHumdHysteresis.getLargeNumber()->getAsFloat() / 2;
+        //    hysteresis = menuHumdHysteresis.getLargeNumber()->getAsFloat() / 2;
+        hysteresis = menuHumdHysteresis.getLargeNumber()->getAsFloat();
         break;
 
     default:
@@ -596,7 +599,7 @@ void dehumidifyControl()
 {
     float set = loc.dhSetPt;
 
-    if ((ctlState == ON) && (curHumd < (set - hysteresis)))
+    if ((ctlState == ON) && (curHumd <= (set /* - hysteresis */)))
     {
         wait = (minRunTimeDelay != 0);
 
@@ -607,7 +610,7 @@ void dehumidifyControl()
             compressorDelay = COMPRESSOR_DELAY;
         }
     }
-    else if ((ctlState == OFF) && (curHumd > (set + hysteresis)))
+    else if ((ctlState == OFF) && (curHumd >= (set + hysteresis)))
     {
         wait = (compressorDelay != 0);
 
@@ -633,7 +636,7 @@ void dehumidifyControl()
         lastSt = ctlState;
         lastSet = set;
 
-        Serial.printf("dh: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s  cmpDly: %u  minRT: %u\n",
+        Serial.printf("dh: cur:%0.2f  set:%0.2f  hys(+N/-0):%0.2f  %s  cmpDly: %u  minRT: %u\n",
                       curHumd, set, hysteresis, ctlState ? "ON" : "OFF", compressorDelay, minRunTimeDelay);
     }
 #endif
