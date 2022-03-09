@@ -49,6 +49,7 @@ typedef struct
     int16_t dhSetPt;        // dehumidifier
     uint16_t powerCycleCnt; // put something in an otherwise empty pad :)
     uint32_t bootTime;      // epoch time() of boot
+    uint32_t lastClear;     // epoch time() of last clear of "on time" counters
     uint32_t heatSeconds;   // total heat "on" time
     uint32_t coolSeconds;   // total a/c "on" time
     uint32_t dhSeconds;     // total dh "on" time

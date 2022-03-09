@@ -30,7 +30,12 @@ extern GraphicsDeviceRenderer renderer;
 
 
 // Global Menu Item exports
+extern ActionMenuItem menuSafePowerdown;
 extern ActionMenuItem menuExitMenu;
+extern ActionMenuItem menuClearUsageCntrs;
+extern ActionMenuItem menuDisplayUsageCntrs;
+extern BackMenuItem menuBackUsageCounters;
+extern SubMenuItem menuUsageCounters;
 extern EditableLargeNumberMenuItem menuCoolingHysteresis;
 extern EditableLargeNumberMenuItem menuCoolingCal;
 extern BackMenuItem menuBackCoolingSettings;
@@ -56,14 +61,17 @@ void setupMenu();
 // Callback functions must always include CALLBACK_FUNCTION after the return type
 #define CALLBACK_FUNCTION
 
+void CALLBACK_FUNCTION ClearUsageCntrs(int id);
 void CALLBACK_FUNCTION CoolingCalCallback(int id);
 void CALLBACK_FUNCTION CoolingHysteresisCallback(int id);
+void CALLBACK_FUNCTION DisplayUsageCntrs(int id);
 void CALLBACK_FUNCTION ExitMenuCallback(int id);
 void CALLBACK_FUNCTION FanCallback(int id);
 void CALLBACK_FUNCTION HumdHysteresisCallback(int id);
 void CALLBACK_FUNCTION HumidityCalCallback(int id);
 void CALLBACK_FUNCTION MinRunTimeCallback(int id);
 void CALLBACK_FUNCTION ModeCallback(int id);
+void CALLBACK_FUNCTION SafePowerdown(int id);
 void CALLBACK_FUNCTION TempCalCallback(int id);
 void CALLBACK_FUNCTION TempHysteresisCallback(int id);
 

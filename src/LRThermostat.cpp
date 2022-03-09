@@ -77,9 +77,16 @@ int16_t *pSetPt = NULL;                      // Pointer to current setpoint base
 EEPROM_LOCAL_VARS loc;            // local working variables
 EEPROM_LOCAL_VARS chgdVars = {0}; // Changes to be committed
 
+// Usage counters outside of the EEPROM 'loc' mirrored variables
+uint32_t heatSeconds = 0;
+uint32_t coolSeconds = 0;
+uint32_t dhSeconds = 0;
+
 // Function declarations
 void checkLocalVarChanges();
+void saveLocToEEPROM();
 void LocalDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
+void accumulateUsage();
 void loadMenuChanges();
 void readSensors();
 void heatControl();
@@ -188,9 +195,6 @@ void loop()
     uint32_t time1sec = 0;
     uint32_t time6hr = T6_HOURS_IN_SEC; // countdown
     uint32_t curTime;
-    uint32_t heatSeconds = 0;
-    uint32_t coolSeconds = 0;
-    uint32_t dhSeconds = 0;
 
     while (1)
     {
@@ -278,30 +282,16 @@ void loop()
             if (--time6hr == 0)
             {
                 time6hr = T6_HOURS_IN_SEC;
+                accumulateUsage();
 
-                Serial.printf("heat on %u, %u\n", heatSeconds, loc.heatSeconds);
-                Serial.printf("ac on   %u, %u\n", coolSeconds, loc.coolSeconds);
-                Serial.printf("dh on   %u, %u\n", dhSeconds, loc.dhSeconds);
-                loc.heatSeconds += heatSeconds;
-                loc.coolSeconds += coolSeconds;
-                loc.dhSeconds += dhSeconds;
-                heatSeconds = 0;
-                coolSeconds = 0;
-                dhSeconds = 0;
-
-                // the loc vars get committed to EPROM above
+                // the loc vars get committed to EPROM below
             }
         } // end of 1 sec loop
 
         // Save local vars if inactivity timeout
         if (lclVarChgTime && ((lclVarChgTime + INACTIVITY_TIMEOUT) < curTime))
         {
-            EEPROM.writeBytes(EEPROM_LOCAL_VAR_ADDR, &loc, sizeof(EEPROM_LOCAL_VARS));
-            EEPROM.commit();
-            Serial.printf("Local data saved\n");
-
-            chgdVars = {0};
-            lclVarChgTime = 0;
+            saveLocToEEPROM();
         }
     }
 }
@@ -329,6 +319,28 @@ void checkLocalVarChanges()
     {
         lclVarChgTime = 0;
     }
+}
+
+// Save local variables to EEPROM
+void saveLocToEEPROM()
+{
+    EEPROM.writeBytes(EEPROM_LOCAL_VAR_ADDR, &loc, sizeof(EEPROM_LOCAL_VARS));
+    EEPROM.commit();
+    Serial.printf("Local data saved\n");
+
+    chgdVars = {0};
+    lclVarChgTime = 0;
+}
+
+// Add non-saved usage data to 'loc' vars so they get saved to NVM
+void accumulateUsage()
+{
+    loc.heatSeconds += heatSeconds;
+    loc.coolSeconds += coolSeconds;
+    loc.dhSeconds += dhSeconds;
+    heatSeconds = 0;
+    coolSeconds = 0;
+    dhSeconds = 0;
 }
 
 // This function is called by the renderer every 100 mS once the display is taken over.
@@ -784,6 +796,66 @@ void CALLBACK_FUNCTION CoolingHysteresisCallback(int id)
     float val = menuCoolingHysteresis.getLargeNumber()->getAsFloat();
     Serial.printf("CB - CoolHys: %0.2f\n", val);
     menuChg = TRUE;
+}
+
+char *formatUsageCounter(uint32_t sec, char *buf)
+{
+    uint32_t hours = sec / 3600;
+    sec -= hours * 3600;
+    uint32_t min = sec / 60;
+    sec -= min * 60;
+
+    // output format: hhhh:mm:ss
+    sprintf(buf, "%u:%02u:%02u", hours, min, sec);
+
+    return buf;
+}
+
+void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
+{
+    accumulateUsage();
+    saveLocToEEPROM();
+
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0, 2);
+
+    char buf[32];
+    char *pStr = ctime((const time_t *)&loc.lastClear);
+    tft.printf("Accumlated time since:\n%s\n", &pStr[4]);
+    tft.printf("Heat on %s\n", formatUsageCounter(loc.heatSeconds, buf));
+    tft.printf("A/C  on %s\n", formatUsageCounter(loc.coolSeconds, buf));
+    tft.printf("D/H  on %s\n", formatUsageCounter(loc.dhSeconds, buf));
+}
+
+void CALLBACK_FUNCTION ClearUsageCntrs(int id)
+{
+    heatSeconds = 0;
+    coolSeconds = 0;
+    dhSeconds = 0;
+    loc.heatSeconds = 0;
+    loc.coolSeconds = 0;
+    loc.dhSeconds = 0;
+
+    time_t now;
+    time(&now);
+
+    if (now > 1600000000) // "9/13/2020 12:26:40" in case you are wondering :)
+    {
+        loc.lastClear = now;
+    }
+
+    DisplayUsageCntrs(0);
+}
+
+void CALLBACK_FUNCTION SafePowerdown(int id)
+{
+    accumulateUsage();
+    saveLocToEEPROM();
+
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0, 2);
+
+    tft.printf("It is safe to power off!\n");
 }
 
 //******************************** Display Routines *******************************************

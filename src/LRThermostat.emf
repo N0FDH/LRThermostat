@@ -219,6 +219,48 @@
     },
     {
       "parentId": 0,
+      "type": "subMenu",
+      "item": {
+        "secured": false,
+        "name": "Usage Counters",
+        "variableName": "UsageCounters",
+        "id": 79,
+        "eepromAddress": -1,
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
+        "name": "Display",
+        "variableName": "DisplayUsageCntrs",
+        "id": 81,
+        "eepromAddress": -1,
+        "functionName": "DisplayUsageCntrs",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
+        "name": "Clear",
+        "variableName": "ClearUsageCntrs",
+        "id": 80,
+        "eepromAddress": -1,
+        "functionName": "ClearUsageCntrs",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 0,
       "type": "actionMenu",
       "item": {
         "name": "Exit",
@@ -226,6 +268,20 @@
         "id": 50,
         "eepromAddress": -1,
         "functionName": "ExitMenuCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 0,
+      "type": "actionMenu",
+      "item": {
+        "name": "Safe Powerdown",
+        "variableName": "SafePowerdown",
+        "id": 78,
+        "eepromAddress": -1,
+        "functionName": "SafePowerdown",
         "readOnly": false,
         "localOnly": false,
         "visible": true

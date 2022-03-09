@@ -20,8 +20,18 @@ TfteSpiDrawable tftDrawable(&tft, 2);
 GraphicsDeviceRenderer renderer(30, applicationInfo.name, &tftDrawable);
 
 // Global Menu Item declarations
+const PROGMEM AnyMenuInfo minfoSafePowerdown = { "Safe Powerdown", 78, 0xffff, 0, SafePowerdown };
+ActionMenuItem menuSafePowerdown(&minfoSafePowerdown, NULL);
 const PROGMEM AnyMenuInfo minfoExitMenu = { "Exit", 50, 0xffff, 0, ExitMenuCallback };
-ActionMenuItem menuExitMenu(&minfoExitMenu, NULL);
+ActionMenuItem menuExitMenu(&minfoExitMenu, &menuSafePowerdown);
+const PROGMEM AnyMenuInfo minfoClearUsageCntrs = { "Clear", 80, 0xffff, 0, ClearUsageCntrs };
+ActionMenuItem menuClearUsageCntrs(&minfoClearUsageCntrs, NULL);
+const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Display", 81, 0xffff, 0, DisplayUsageCntrs };
+ActionMenuItem menuDisplayUsageCntrs(&minfoDisplayUsageCntrs, &menuClearUsageCntrs);
+RENDERING_CALLBACK_NAME_INVOKE(fnUsageCountersRtCall, backSubItemRenderFn, "Usage Counters", -1, NO_CALLBACK)
+const PROGMEM SubMenuInfo minfoUsageCounters = { "Usage Counters", 79, 0xffff, 0, NO_CALLBACK };
+BackMenuItem menuBackUsageCounters(fnUsageCountersRtCall, &menuDisplayUsageCntrs);
+SubMenuItem menuUsageCounters(&minfoUsageCounters, &menuBackUsageCounters, &menuExitMenu);
 RENDERING_CALLBACK_NAME_INVOKE(fnCoolingHysteresisRtCall, largeNumItemRenderFn, "Hysteresis", 56, CoolingHysteresisCallback)
 EditableLargeNumberMenuItem menuCoolingHysteresis(fnCoolingHysteresisRtCall, 75, 4, 2, false, NULL);
 RENDERING_CALLBACK_NAME_INVOKE(fnCoolingCalRtCall, largeNumItemRenderFn, "Cooling Cal", 48, CoolingCalCallback)
@@ -51,7 +61,7 @@ SubMenuItem menuHumiditySettings(&minfoHumiditySettings, &menuBackHumiditySettin
 RENDERING_CALLBACK_NAME_INVOKE(fnThermostatSettingsRtCall, backSubItemRenderFn, "Settings", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoThermostatSettings = { "Settings", 8, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackThermostatSettings(fnThermostatSettingsRtCall, &menuHumiditySettings);
-SubMenuItem menuThermostatSettings(&minfoThermostatSettings, &menuBackThermostatSettings, &menuExitMenu);
+SubMenuItem menuThermostatSettings(&minfoThermostatSettings, &menuBackThermostatSettings, &menuUsageCounters);
 const char enumStrFanEnum_0[] PROGMEM = "On";
 const char enumStrFanEnum_1[] PROGMEM = "Auto";
 const char* const enumStrFanEnum[] PROGMEM  = { enumStrFanEnum_0, enumStrFanEnum_1 };
