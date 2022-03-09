@@ -274,6 +274,11 @@ void loop()
                     Serial.printf("heat on %u\n", loc.heatSeconds);
                     Serial.printf("ac on   %u\n", loc.coolSeconds);
                     Serial.printf("dh on   %u\n", loc.dhSeconds);
+
+                    if (loc.lastClear == UINT32_ERASED_VALUE || loc.lastClear < 1600000000)
+                    {
+                        loc.lastClear = now;
+                    }
                 }
             }
 
