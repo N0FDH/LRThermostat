@@ -18,12 +18,34 @@
   See more at http://dsbird.org.uk
 */
 
+/*
+** BASIC STATUS PAGE OUTPUT FORMAT (4x18 table)
+**
+*1*                    Temperature       Humidity       Pressure
+*2*                        65*             34%         28.74 inHg
+*3*
+*4* current mode	      heat
+*5* current state	       on
+*6* fan state		      auto
+*7*
+*8*                        Heat            Cool         Dehumidify
+*9* setpoint	           66*		       70*		       55%
+*0* hysteresis(+/-)	     0.5/0.5*	     0.5/0.5*	       10/0%
+*1* usage**		        18:32:04	     18:32:04	     18:32:04
+*2* calibration           -6.0             -6.0             +10
+*3* min run time			                               30 min
+*4*
+*5* **usage reset		3/4/22 18:32:04
+*6* boot time		    3/4/22 18:32:04
+*7* boot count		    24
+*8* FW version		    1.0.0
+*/
+
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include "LRThermostat.h"
 #include "WifiCredentials.h" // Modify "WifiCredentials.h-template" with your credentials
 
-// TODO: I don't care for this much...
 String webpage = ""; // General purpose variable to hold HTML code for display
 String sitetitle = "LR Thermostat";
 
@@ -95,14 +117,14 @@ String WiFiSignal(void)
 void SetupWebpageHandlers()
 {
     // Set handler for '/'
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+    server.on("/", HTTP_GET,
+              [](AsyncWebServerRequest *request)
               { request->redirect("/homepage"); });
 
     // Set handler for '/homepage'
-    server.on("/homepage", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-    Homepage();
-    request->send(200, "text/html", webpage); });
+    server.on("/homepage", HTTP_GET,
+              [](AsyncWebServerRequest *request)
+              { Homepage(); request->send(200, "text/html", webpage); });
 }
 
 //#########################################################################################

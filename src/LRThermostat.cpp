@@ -4,12 +4,14 @@
 // as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
 
 // Features to add / bugs to fix
-// 1) clean up and break out "on time" counters
-// 2) A way to clear the "on time" counters
-// 3) An 'eject' like menu item that saves NVM stuff before power down
-// 4) Write main HTML status page including uptime and "on times"
-// 5) DONE - Change dehumidifier hysteresis so that it is +1N/-0N instead +0.5N/-0.5N.
-//    We want to shut off at the specified humidity level.
+// 1) DONE - clean up and break out "on time" counters
+// 2) DONE - A way to clear the "on time" counters
+// 3) DONE - An 'eject' like menu item that saves NVM stuff before power down
+// 4) DONE - Change dehumidifier hysteresis so that it is +1N/-0N instead +0.5N/-0.5N.
+//           We want to shut off at the specified humidity level.
+// --------------------------------------------------
+// 5) Write main HTML status page including uptime and "on times"
+// 6) Don't hang waiting for WiFi connection. Should be able to operate without WiFi.
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -811,7 +813,7 @@ char *formatUsageCounter(uint32_t sec, char *buf)
     sec -= min * 60;
 
     // output format: hhhh:mm:ss
-    sprintf(buf, "%u:%02u:%02u", hours, min, sec);
+    sprintf(buf, "%4u:%02u:%02u", hours, min, sec);
 
     return buf;
 }
@@ -825,8 +827,8 @@ void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
     tft.setCursor(0, 0, 2);
 
     char buf[32];
-    char *pStr = ctime((const time_t *)&loc.lastClear);
-    tft.printf("Accumlated time since:\n%s\n", &pStr[4]);
+    ctime_r((const time_t *)&loc.lastClear, buf);
+    tft.printf("Accumulated time since:\n%s\n", &buf[4]);
     tft.printf("Heat on %s\n", formatUsageCounter(loc.heatSeconds, buf));
     tft.printf("A/C  on %s\n", formatUsageCounter(loc.coolSeconds, buf));
     tft.printf("D/H  on %s\n", formatUsageCounter(loc.dhSeconds, buf));

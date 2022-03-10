@@ -15,11 +15,10 @@ extern float curBaro; // BME280
 
 // The following variables are loaded from the menu
 // START of tcMenu loaded variables
-extern float tempCal;         // calibration factor
-extern float humdCal;         // calibration factor
-extern float baroCal;         // calibration factor
-extern float hysteresis;      //  (+/-) hysteresis/2 is centered around the set point.
-extern uint32_t dhMinRunTime; // Dehumidifier minimim run time before shutting off
+extern float tempCal;    // calibration factor
+extern float humdCal;    // calibration factor
+extern float baroCal;    // calibration factor
+extern float hysteresis; //  (+/-) hysteresis/2 is centered around the set point.
 
 // Note: tcMenu does not provide enums like this. Be sure to update these
 // if/when you change the 'mode' or 'fan' variable in tcMenu. Order must match!
