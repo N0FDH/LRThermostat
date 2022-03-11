@@ -66,4 +66,4 @@ typedef struct
 #endif
 
 // Wifi and web server stuff
-extern void wifiSetup();
+extern void serverSetup();

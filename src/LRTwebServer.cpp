@@ -41,42 +41,27 @@
 *8* FW version		    1.0.0
 */
 
-#include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include "LRThermostat.h"
-#include "WifiCredentials.h" // Modify "WifiCredentials.h-template" with your credentials
 
 String webpage = ""; // General purpose variable to hold HTML code for display
 String sitetitle = "LR Thermostat";
 
 // Wifi and web server stuff
 AsyncWebServer server(80);
-void WifiSetup();
+
 void SetupWebpageHandlers();
 void append_HTML_header(bool refreshMode);
 void append_HTML_footer();
 void Homepage();
 
 //#########################################################################################
-void wifiSetup()
+void serverSetup()
 {
-    Serial.printf("Connecting to: %s\n", ssid);
-    WiFi.disconnect();
-    WiFi.mode(WIFI_STA); // switch off AP
-    WiFi.setAutoConnect(true);
-    WiFi.setAutoReconnect(true);
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        Serial.print(".");
-        delay(100);
-    }
-    Serial.println("\nWiFi connected, IP = " + WiFi.localIP().toString());
-
     SetupWebpageHandlers();
     server.begin();
 
-    Serial.println("Web server started.");
+    Serial.printf("webserver up\n");
 }
 
 //#########################################################################################

@@ -18,8 +18,10 @@
 #include <EEPROM.h>
 #include <Filter.h>
 #include <time.h>
+#include <WiFi.h>
 #include "LRThermostat.h"
 #include "LRThermostat_menu.h"
+#include "WifiCredentials.h"
 
 #define DEBUG 1
 
@@ -36,7 +38,9 @@
 #define COMPRESSOR_DELAY (5 * 60)      // 5 minutes (counted in seconds)
 #define LOOP_1_SEC 1000                // 1000 mS = 1 sec
 #define T6_HOURS_IN_SEC (6 * 3600)     // 6 hours (counted in seconds)
+#define T100_MS 100                    // 100 mS
 #define UINT32_ERASED_VALUE 0xFFFFFFFF // erased value in eeprom/flash
+#define A_KNOWN_GOOD_TIME 1600000000   // "9/13/2020 7:26:40 CST" in case you are wondering :)
 
 // Relay control macros
 #define FAN(a) digitalWrite(FAN_RELAY, ((a) ? (OFF) : (ON)))
@@ -120,7 +124,8 @@ void dispHumiditySmall();
 void dispHumidityBig();
 void dispHumiditySetPt();
 
-void setupTime();
+void timeSetup();
+void wifiSetup();
 
 // Main Arduino setup function
 void setup()
@@ -188,27 +193,47 @@ void setup()
     wifiSetup();
 
     // Get time
-    setupTime();
+    timeSetup();
 }
 
 // Main Arduino control loop
 void loop()
 {
-    uint32_t time1sec = 0;
+    uint32_t time1sec = millis() + LOOP_1_SEC;
     uint32_t time6hr = T6_HOURS_IN_SEC; // countdown
     uint32_t curTime;
+    uint32_t wifiRetry = 0;
+    bool wifiUp = FALSE;
 
     while (1)
     {
-        // tcMenu
-        taskManager.runLoop();
-
         curTime = millis();
 
-        // 1 second loop time
+        // Attemp Wifi connection, although not required to operate
+        if (wifiUp == FALSE)
+        {
+            if (curTime >= wifiRetry)
+            {
+                if (WiFi.status() == WL_CONNECTED)
+                {
+                    wifiUp = TRUE;
+                    Serial.println("wifi up -> " + WiFi.localIP().toString());
+                    serverSetup();
+                }
+                else
+                {
+                    wifiRetry = curTime + T100_MS;
+                }
+            }
+        }
+
+        // Service tcMenu
+        taskManager.runLoop();
+
+        // Service 1 second loop timer
         if (time1sec <= curTime)
         {
-            time1sec = curTime + LOOP_1_SEC;
+            time1sec += LOOP_1_SEC;
 
             // Read sensor data
             readSensors();
@@ -269,7 +294,8 @@ void loop()
                 time_t now;
                 time(&now);
 
-                if (now > 1600000000) // "9/13/2020 12:26:40" in case you are wondering :)
+                // This may never happen if not connected to Wifi, but that should be OK
+                if (now > A_KNOWN_GOOD_TIME) // "9/13/2020 12:26:40" in case you are wondering :)
                 {
                     loc.bootTime = now;
                     Serial.printf("boot at %u\n", loc.bootTime);
@@ -277,9 +303,9 @@ void loop()
                     Serial.printf("ac on   %u\n", loc.coolSeconds);
                     Serial.printf("dh on   %u\n", loc.dhSeconds);
 
-                    if (loc.lastClear == UINT32_ERASED_VALUE || loc.lastClear < 1600000000)
+                    if (loc.lastClear == UINT32_ERASED_VALUE)
                     {
-                        loc.lastClear = now;
+                        loc.lastClear = 0;
                     }
                 }
             }
@@ -846,9 +872,13 @@ void CALLBACK_FUNCTION ClearUsageCntrs(int id)
     time_t now;
     time(&now);
 
-    if (now > 1600000000) // "9/13/2020 12:26:40" in case you are wondering :)
+    if (now > A_KNOWN_GOOD_TIME)
     {
         loc.lastClear = now;
+    }
+    else
+    {
+        loc.lastClear = 0;
     }
 
     DisplayUsageCntrs(0);
@@ -1043,8 +1073,19 @@ const char *timeZone = "CST6CDT,M3.2.0,M11.1.0";
 const char *ntpServer1 = "pool.ntp.org";
 const char *ntpServer2 = "time.nist.gov";
 
-void setupTime()
+void timeSetup()
 {
     // init and get the time
     configTzTime(timeZone, ntpServer1, ntpServer2);
+}
+
+//*********************************************************************************************
+void wifiSetup()
+{
+    Serial.printf("Connecting to: %s\n", ssid);
+    WiFi.disconnect();
+    WiFi.mode(WIFI_STA);
+    WiFi.setAutoConnect(true);
+    WiFi.setAutoReconnect(true);
+    WiFi.begin(ssid, password);
 }
