@@ -10,10 +10,12 @@
 // 4) DONE - Change dehumidifier hysteresis so that it is +1N/-0N instead +0.5N/-0.5N.
 //           We want to shut off at the specified humidity level.
 // 5) DONE - Don't hang waiting for WiFi connection. Should be able to operate without WiFi.
+// 6) DONE - Add barometric pressure to display
 // -------------------------------------------------------------------------------------
-// 6) Write main HTML status page including uptime and "on times"
-// 7) Which relay is cycling when transitioning from menu to normal display right after boot?
-// 8) Add barometric pressure to display, and add a calibration menu item for it
+// 7) Write main HTML status page including uptime and "on times"
+// 8) Which relay is cycling when transitioning from menu to normal display right after boot?
+// 9) Add a calibration menu item for baro
+// 10) Add a menu item to display WiFi signal strength
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -191,6 +193,10 @@ void setup()
     FAN(OFF);
     pinMode(HEAT_RELAY, OUTPUT);
     HEAT(OFF);
+    pinMode(AC_RELAY, OUTPUT);
+    COOL(OFF);
+    pinMode(DH_RELAY, OUTPUT);
+    DH(OFF);
 
     // Wifi
     wifiSetup();
@@ -212,7 +218,7 @@ void loop()
     {
         curTime = millis();
 
-        // Attemp Wifi connection, although not required to operate
+        // Attempt Wifi connection, although not required to operate
         if (wifiUp == FALSE)
         {
             if (curTime >= wifiRetry)
@@ -272,6 +278,8 @@ void loop()
             default:
                 // make sure control relays are off. Fan on is OK.
                 HEAT(OFF);
+                COOL(OFF);
+                DH(OFF);
             }
 
             // handle fan relay
@@ -909,7 +917,7 @@ void dispMainTemp()
 {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);     // Note: the new fonts do not draw the background colour
     tft.drawNumber(round(curTemp), 47, 42, 7); // Temperature using font 7
-    tft.drawString("O", 110, 35, 2);
+    tft.drawString("O", 114, 37, 2);
 }
 
 //****************************************** Temperature Set Point ****************************
@@ -1026,11 +1034,11 @@ void dispModeOff()
 //****************************************** Baro *********************************************
 void dispBaro()
 {
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setTextColor(TFT_GOLD, TFT_BLACK);
     tft.setTextSize(2);
-    tft.drawFloat(curBaro, 2, 98, 105, 1); // Humidity at font 1
+    tft.drawFloat(curBaro, 1, 108, 108, 1); // drawFloat does appropriate rounding
     tft.setTextSize(1);
-    tft.drawString("inHg", 132, 94, 1);
+    tft.drawString("inHg", 131, 94, 1);
 }
 
 //****************************************** Fan **********************************************

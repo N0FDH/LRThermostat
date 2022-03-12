@@ -8,3 +8,4 @@ include/README
 lib/README
 src/WifiCredentials.h
 src/LRThermostat.cpp-save
+.vscode/settings.json
