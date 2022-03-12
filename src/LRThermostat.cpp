@@ -41,8 +41,9 @@
 #define INACTIVITY_TIMEOUT 10000       // 10000 mS = 10 sec
 #define COMPRESSOR_DELAY (5 * 60)      // 5 minutes (counted in seconds)
 #define LOOP_1_SEC 1000                // 1000 mS = 1 sec
-#define T6_HOURS_IN_SEC (6 * 3600)     // 6 hours (counted in seconds)
-#define T100_MS 100                    // 100 mS
+#define T_15MIN_IN_SEC (15 * 60)       // 1/4 hour (counted in seconds)
+#define T_6HOURS_IN_SEC (6 * 3600)     // 6 hours (counted in seconds)
+#define T_100MS 100                    // 100 mS
 #define UINT32_ERASED_VALUE 0xFFFFFFFF // erased value in eeprom/flash
 #define A_KNOWN_GOOD_TIME 1600000000   // "9/13/2020 7:26:40 CST" in case you are wondering :)
 
@@ -58,6 +59,8 @@ Adafruit_BME280 bme;
 float curTemp = 0; // BME280
 float curHumd = 0; // BME280
 float curBaro = 0; // BME280
+
+int8_t baroDir = 0;
 
 // The following variables are loaded from the menu
 // START of tcMenu loaded variables
@@ -107,6 +110,7 @@ void myResetCallback();
 void configEncoderForMode();
 void takeOverDisplay();
 void shutDownPrevMode();
+void updateBaroRiseFall();
 
 // display func declarations
 void dispMainTemp();
@@ -128,6 +132,7 @@ void dispHumiditySmall();
 void dispHumidityBig();
 void dispHumiditySetPt();
 void dispBaro();
+void dispBaroArrow(int32_t dir);
 
 void timeSetup();
 void wifiSetup();
@@ -209,7 +214,8 @@ void setup()
 void loop()
 {
     uint32_t time1sec = millis() + LOOP_1_SEC;
-    uint32_t time6hr = T6_HOURS_IN_SEC; // countdown
+    uint32_t time15min = 3;             // countdown
+    uint32_t time6hr = T_6HOURS_IN_SEC; // countdown
     uint32_t curTime;
     uint32_t wifiRetry = 0;
     bool wifiUp = FALSE;
@@ -231,7 +237,7 @@ void loop()
                 }
                 else
                 {
-                    wifiRetry = curTime + T100_MS;
+                    wifiRetry = curTime + T_100MS;
                 }
             }
         }
@@ -321,11 +327,19 @@ void loop()
                 }
             }
 
+            // Once every 1/4 hour, check on barometric pressure and adjust
+            // rising, falling indicator.
+            if (--time15min == 0)
+            {
+                updateBaroRiseFall();
+                time15min = T_15MIN_IN_SEC;
+            }
+
             // Once every 6 hours, add in the control usage seconds.
             // This is delayed to minimize writes to the EEPROM.
             if (--time6hr == 0)
             {
-                time6hr = T6_HOURS_IN_SEC;
+                time6hr = T_6HOURS_IN_SEC;
                 accumulateUsage();
 
                 // the loc vars get committed to EPROM below
@@ -385,6 +399,51 @@ void accumulateUsage()
     heatSeconds = 0;
     coolSeconds = 0;
     dhSeconds = 0;
+}
+
+void updateBaroRiseFall()
+{
+#define BARO_CNT 12
+    static int16_t oldBaro[BARO_CNT] = {0}; // 3 hrs history, once every 15 min
+
+    // keep integer + 3 decimal places, rounded first
+    int32_t curBaroInt = (int32_t)((curBaro + 0.0005) * 1000);
+    int32_t diff;
+
+    // determine if ever initialized
+    if (oldBaro[0] == 0)
+    {
+        for (int i = 0; i < BARO_CNT; i++)
+        {
+            oldBaro[i] = curBaroInt;
+        }
+    }
+
+    // See how much we have shifted in 3 hours
+    diff = curBaroInt - oldBaro[BARO_CNT - 1];
+
+    baroDir = 1;
+    if (diff < 0)
+    {
+        diff = -diff;
+        baroDir = -1;
+    }
+
+    // https://sciencing.com/high-low-reading-barometric-pressure-5814364.html
+    if (diff <= 3)
+    {
+        baroDir = 0;
+    }
+
+    Serial.printf("curBaro: %i, oldBaro: %i, diff: %i, dir: %i\n",
+                  curBaroInt, oldBaro[BARO_CNT - 1], diff, baroDir);
+
+    // shift baro history down
+    for (int i = (BARO_CNT - 1); i > 0; i--)
+    {
+        oldBaro[i] = oldBaro[i - 1];
+    }
+    oldBaro[0] = curBaroInt;
 }
 
 // This function is called by the renderer every 100 mS once the display is taken over.
@@ -1032,13 +1091,46 @@ void dispModeOff()
 }
 
 //****************************************** Baro *********************************************
+// <0 = down, 0 = off, >0 = up
+void dispBaroArrow(int32_t dir)
+{
+    int32_t x = 97;
+    int32_t y = 108;
+    int16_t color = TFT_GOLD;
+
+    int32_t up = TFT_BLACK;
+    int32_t dn = TFT_BLACK;
+    int32_t ln = TFT_BLACK;
+
+    if (dir < 0)
+    {
+        dn = color;
+        ln = color;
+    }
+    else if (dir > 0)
+    {
+        up = color;
+        ln = color;
+    }
+
+    tft.drawLine(x + 1, y + 3, x + 4, y + 0, up);
+    tft.drawLine(x + 4, y + 0, x + 7, y + 3, up);
+
+    tft.drawLine(x + 1, y + 10, x + 4, y + 13, dn);
+    tft.drawLine(x + 4, y + 13, x + 7, y + 10, dn);
+
+    tft.drawLine(x + 4, y + 0, x + 4, y + 13, ln);
+}
+
 void dispBaro()
 {
     tft.setTextColor(TFT_GOLD, TFT_BLACK);
     tft.setTextSize(2);
     tft.drawFloat(curBaro, 1, 108, 108, 1); // drawFloat does appropriate rounding
     tft.setTextSize(1);
-    tft.drawString("inHg", 131, 94, 1);
+    tft.drawString("inHg", 131, 95, 1);
+
+    dispBaroArrow(baroDir);
 }
 
 //****************************************** Fan **********************************************
