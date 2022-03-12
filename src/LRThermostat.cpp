@@ -9,9 +9,11 @@
 // 3) DONE - An 'eject' like menu item that saves NVM stuff before power down
 // 4) DONE - Change dehumidifier hysteresis so that it is +1N/-0N instead +0.5N/-0.5N.
 //           We want to shut off at the specified humidity level.
-// --------------------------------------------------
-// 5) Write main HTML status page including uptime and "on times"
-// 6) Don't hang waiting for WiFi connection. Should be able to operate without WiFi.
+// 5) DONE - Don't hang waiting for WiFi connection. Should be able to operate without WiFi.
+// -------------------------------------------------------------------------------------
+// 6) Write main HTML status page including uptime and "on times"
+// 7) Which relay is cycling when transitioning from menu to normal display right after boot?
+// 8) Add barometric pressure to display, and add a calibration menu item for it
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -123,6 +125,7 @@ void dispFanOff();
 void dispHumiditySmall();
 void dispHumidityBig();
 void dispHumiditySetPt();
+void dispBaro();
 
 void timeSetup();
 void wifiSetup();
@@ -418,12 +421,14 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
         dispHumiditySmall();
         dispTempSetPt();
         (ctlState == ON) ? dispHeatOn() : dispHeatOff();
+        dispBaro();
         break;
 
     case COOL:
         dispMainTemp();
         dispHumiditySmall();
         dispAcSetPt();
+        dispBaro();
 
         if (ctlState == OFF)
         {
@@ -446,6 +451,7 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
         dispTempSmall();
         dispHumidityBig();
         dispHumiditySetPt();
+        dispBaro();
 
         if (ctlState == OFF)
         {
@@ -462,6 +468,8 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
         dispMainTemp();
         dispHumiditySmall();
         dispModeOff();
+        dispBaro();
+
         break;
     }
 
@@ -496,6 +504,7 @@ void loadMenuChanges()
     tempCal = menuTempCal.getLargeNumber()->getAsFloat();
     humdCal = menuHumidityCal.getLargeNumber()->getAsFloat();
     //    baroCal = menuPressureCal.getLargeNumber()->getAsFloat();
+    baroCal = 1.44;
     mode = (MODE)menuModeEnum.getCurrentValue();
     fan = (FAN)menuFanEnum.getCurrentValue();
     dhMinRunTime = menuMinRunTime.getAsFloatingPointValue() * 60; // specified in min, convert to sec.
@@ -899,7 +908,7 @@ void CALLBACK_FUNCTION SafePowerdown(int id)
 void dispMainTemp()
 {
     tft.setTextColor(TFT_CYAN, TFT_BLACK);     // Note: the new fonts do not draw the background colour
-    tft.drawNumber(round(curTemp), 43, 45, 7); // Temperature using font 7
+    tft.drawNumber(round(curTemp), 47, 42, 7); // Temperature using font 7
     tft.drawString("O", 110, 35, 2);
 }
 
@@ -1014,26 +1023,37 @@ void dispModeOff()
     tft.drawString("OFF       ", 8, 115, 1);
 }
 
+//****************************************** Baro *********************************************
+void dispBaro()
+{
+    tft.setTextColor(TFT_GREEN, TFT_BLACK);
+    tft.setTextSize(2);
+    tft.drawFloat(curBaro, 2, 98, 105, 1); // Humidity at font 1
+    tft.setTextSize(1);
+    tft.drawString("inHg", 132, 94, 1);
+}
+
 //****************************************** Fan **********************************************
 void dispFanOn()
 {
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
-    tft.drawString("FAN    ", 135, 115, 1);
-    tft.drawString("ON  ", 135, 105, 1);
+    tft.setTextColor(TFT_VIOLET, TFT_BLACK);
+    tft.drawString("FAN    ", 8, 57, 1);
+    tft.drawString("ON  ", 8, 67, 1);
 }
 
 void dispFanOff()
 {
-    tft.setTextColor(TFT_GREEN, TFT_BLACK);
-    tft.drawString("       ", 135, 115, 1);
-    tft.drawString("    ", 135, 105, 1);
+    tft.setTextColor(TFT_VIOLET, TFT_BLACK);
+    tft.drawString("       ", 8, 57, 1);
+    tft.drawString("    ", 8, 67, 1);
 }
 
 // ************************* Humidity Reading for when Humidity is main screen ****************
 void dispHumidityBig()
 {
     tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-    tft.drawNumber(round(curHumd), 43, 45, 7);
+    tft.drawNumber(round(curHumd), 47, 42, 7); // Temperature using font 7
+
     tft.setTextSize(2);
     tft.drawString(" %", 103, 40, 1);
     tft.setTextSize(1);
