@@ -31,24 +31,26 @@ extern GraphicsDeviceRenderer renderer;
 
 // Global Menu Item exports
 extern ActionMenuItem menuSafePowerdown;
-extern ActionMenuItem menuExitMenu;
+extern ActionMenuItem menuExitVar;
 extern ActionMenuItem menuClearUsageCntrs;
 extern ActionMenuItem menuDisplayUsageCntrs;
 extern BackMenuItem menuBackUsageCounters;
 extern SubMenuItem menuUsageCounters;
-extern EditableLargeNumberMenuItem menuCoolingHysteresis;
-extern EditableLargeNumberMenuItem menuCoolingCal;
-extern BackMenuItem menuBackCoolingSettings;
-extern SubMenuItem menuCoolingSettings;
-extern EditableLargeNumberMenuItem menuTempHysteresis;
-extern EditableLargeNumberMenuItem menuTempCal;
-extern BackMenuItem menuBackHeatingSettings;
-extern SubMenuItem menuHeatingSettings;
-extern EditableLargeNumberMenuItem menuHumdHysteresis;
-extern EditableLargeNumberMenuItem menuHumidityCal;
+extern EditableLargeNumberMenuItem menuBaroRapidLoLimit;
+extern EditableLargeNumberMenuItem menuBaroSteadyUpLimit;
 extern AnalogMenuItem menuMinRunTime;
-extern BackMenuItem menuBackHumiditySettings;
-extern SubMenuItem menuHumiditySettings;
+extern BackMenuItem menuBackMiscellaneous;
+extern SubMenuItem menuMiscellaneous;
+extern EditableLargeNumberMenuItem menuPressureCal;
+extern EditableLargeNumberMenuItem menuTemperatureCal;
+extern EditableLargeNumberMenuItem menuHumidityCal;
+extern BackMenuItem menuBackSensorCalibration;
+extern SubMenuItem menuSensorCalibration;
+extern EditableLargeNumberMenuItem menuHumdHysteresis;
+extern EditableLargeNumberMenuItem menuHeatingHysteresis;
+extern EditableLargeNumberMenuItem menuCoolingHysteresis;
+extern BackMenuItem menuBackHysteresis;
+extern SubMenuItem menuHysteresis;
 extern BackMenuItem menuBackThermostatSettings;
 extern SubMenuItem menuThermostatSettings;
 extern EnumMenuItem menuFanEnum;
@@ -61,18 +63,20 @@ void setupMenu();
 // Callback functions must always include CALLBACK_FUNCTION after the return type
 #define CALLBACK_FUNCTION
 
+void CALLBACK_FUNCTION BaroRapidLoLimitCallback(int id);
+void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id);
 void CALLBACK_FUNCTION ClearUsageCntrs(int id);
-void CALLBACK_FUNCTION CoolingCalCallback(int id);
 void CALLBACK_FUNCTION CoolingHysteresisCallback(int id);
 void CALLBACK_FUNCTION DisplayUsageCntrs(int id);
-void CALLBACK_FUNCTION ExitMenuCallback(int id);
+void CALLBACK_FUNCTION ExitCallback(int id);
 void CALLBACK_FUNCTION FanCallback(int id);
+void CALLBACK_FUNCTION HeatingHysteresisCallback(int id);
 void CALLBACK_FUNCTION HumdHysteresisCallback(int id);
 void CALLBACK_FUNCTION HumidityCalCallback(int id);
 void CALLBACK_FUNCTION MinRunTimeCallback(int id);
 void CALLBACK_FUNCTION ModeCallback(int id);
+void CALLBACK_FUNCTION PressureCalCallback(int id);
 void CALLBACK_FUNCTION SafePowerdown(int id);
 void CALLBACK_FUNCTION TempCalCallback(int id);
-void CALLBACK_FUNCTION TempHysteresisCallback(int id);
 
 #endif // MENU_GENERATED_CODE_H

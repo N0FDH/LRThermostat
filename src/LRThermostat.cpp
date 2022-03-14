@@ -60,6 +60,9 @@ float curTemp = 0; // BME280
 float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
+uint32_t baroSteady; // upper baro pressure limit for 'steady'
+uint32_t baroRapid;  // lower baro limit for 'rapid'
+
 int8_t baroDir = 0;
 
 // The following variables are loaded from the menu
@@ -382,6 +385,10 @@ void checkLocalVarChanges()
 // Save local variables to EEPROM
 void saveLocToEEPROM()
 {
+    //    float zzz;
+    //    memset(&zzz, 0, sizeof(zzz));
+    //    EEPROM.writeBytes(64, &zzz, sizeof(zzz));
+
     EEPROM.writeBytes(EEPROM_LOCAL_VAR_ADDR, &loc, sizeof(EEPROM_LOCAL_VARS));
     EEPROM.commit();
     Serial.printf("Local data saved\n");
@@ -408,7 +415,9 @@ void updateBaroRiseFall()
 
     // keep integer + 3 decimal places, rounded first
     int32_t curBaroInt = (int32_t)((curBaro + 0.0005) * 1000);
+
     int32_t diff;
+    bool baroSign = 1;
 
     // determine if ever initialized
     if (oldBaro[0] == 0)
@@ -422,18 +431,31 @@ void updateBaroRiseFall()
     // See how much we have shifted in 3 hours
     diff = curBaroInt - oldBaro[BARO_CNT - 1];
 
-    baroDir = 1;
     if (diff < 0)
     {
         diff = -diff;
-        baroDir = -1;
+        baroSign = -1;
     }
 
+    Serial.printf("Baro limits: rapid: %u, steady: %u\n", baroRapid, baroSteady);
+
     // https://sciencing.com/high-low-reading-barometric-pressure-5814364.html
-    if (diff <= 3)
+    baroDir = 0;
+    if (diff > baroRapid)
+    {
+        baroDir = 2;
+    }
+    else if (diff > baroSteady)
+    {
+        baroDir = 1;
+    }
+    else
     {
         baroDir = 0;
     }
+
+    // add in the sign
+    baroDir *= baroSign;
 
     Serial.printf("curBaro: %i, oldBaro: %i, diff: %i, dir: %i\n",
                   curBaroInt, oldBaro[BARO_CNT - 1], diff, baroDir);
@@ -568,18 +590,33 @@ void loadMenuChanges()
         menuChg = FALSE;
     }
 
-    tempCal = menuTempCal.getLargeNumber()->getAsFloat();
+    tempCal = menuTemperatureCal.getLargeNumber()->getAsFloat();
     humdCal = menuHumidityCal.getLargeNumber()->getAsFloat();
-    //    baroCal = menuPressureCal.getLargeNumber()->getAsFloat();
-    baroCal = 1.44;
+    baroCal = menuPressureCal.getLargeNumber()->getAsFloat();
+
     mode = (MODE)menuModeEnum.getCurrentValue();
     fan = (FAN)menuFanEnum.getCurrentValue();
     dhMinRunTime = menuMinRunTime.getAsFloatingPointValue() * 60; // specified in min, convert to sec.
 
+    // First an initialization step. THis is working around a bug in tcMenu. Too long
+    // and uninteresting to explain.
+    if (menuBaroSteadyUpLimit.getLargeNumber()->isNegative())
+    {
+        menuBaroSteadyUpLimit.getLargeNumber()->setNegative(FALSE);
+    }
+    if (menuBaroRapidLoLimit.getLargeNumber()->isNegative())
+    {
+        menuBaroRapidLoLimit.getLargeNumber()->setNegative(FALSE);
+    }
+
+    // keep integer + 3 decimal places, rounded first
+    baroSteady = (uint32_t)((menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat() + 0.0005) * 1000);
+    baroRapid = (uint32_t)((menuBaroRapidLoLimit.getLargeNumber()->getAsFloat() + 0.0005) * 1000);
+
     switch (mode)
     {
     case HEAT:
-        hysteresis = menuTempHysteresis.getLargeNumber()->getAsFloat() / 2;
+        hysteresis = menuHeatingHysteresis.getLargeNumber()->getAsFloat() / 2;
         break;
 
     case COOL:
@@ -837,7 +874,7 @@ void myResetCallback()
 }
 
 // The tcMenu callbacks
-void CALLBACK_FUNCTION ExitMenuCallback(int id)
+void CALLBACK_FUNCTION ExitCallback(int id)
 {
     takeOverDisplay();
 }
@@ -881,22 +918,15 @@ void CALLBACK_FUNCTION HumdHysteresisCallback(int id)
 
 void CALLBACK_FUNCTION TempCalCallback(int id)
 {
-    float val = menuTempCal.getLargeNumber()->getAsFloat();
+    float val = menuTemperatureCal.getLargeNumber()->getAsFloat();
     Serial.printf("CB - HeatCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
-void CALLBACK_FUNCTION TempHysteresisCallback(int id)
+void CALLBACK_FUNCTION HeatingHysteresisCallback(int id)
 {
-    float val = menuTempHysteresis.getLargeNumber()->getAsFloat();
+    float val = menuHeatingHysteresis.getLargeNumber()->getAsFloat();
     Serial.printf("CB - HeatHys: %0.2f\n", val);
-    menuChg = TRUE;
-}
-
-void CALLBACK_FUNCTION CoolingCalCallback(int id)
-{
-    float val = menuCoolingCal.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - CoolCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
@@ -969,6 +999,27 @@ void CALLBACK_FUNCTION SafePowerdown(int id)
     tft.setCursor(0, 0, 2);
 
     tft.printf("It is safe to power off!\n");
+}
+
+void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id)
+{
+    float val = menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat();
+    Serial.printf("CB - BaroSteady: %0.4f\n", val);
+    menuChg = TRUE;
+}
+
+void CALLBACK_FUNCTION BaroRapidLoLimitCallback(int id)
+{
+    float val = menuBaroRapidLoLimit.getLargeNumber()->getAsFloat();
+    Serial.printf("CB - BaroRapid: %0.4f\n", val);
+    menuChg = TRUE;
+}
+
+void CALLBACK_FUNCTION PressureCalCallback(int id)
+{
+    float val = menuPressureCal.getLargeNumber()->getAsFloat();
+    Serial.printf("CB - PressCal: %0.2f\n", val);
+    menuChg = TRUE;
 }
 
 //******************************** Display Routines *******************************************
@@ -1096,7 +1147,7 @@ void dispBaroArrow(int32_t dir)
 {
     int32_t x = 97;
     int32_t y = 108;
-    int16_t color = TFT_GOLD;
+    int16_t color = (abs(dir) > 1) ? TFT_RED : TFT_GOLD;
 
     int32_t up = TFT_BLACK;
     int32_t dn = TFT_BLACK;

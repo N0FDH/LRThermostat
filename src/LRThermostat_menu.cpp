@@ -22,8 +22,8 @@ GraphicsDeviceRenderer renderer(30, applicationInfo.name, &tftDrawable);
 // Global Menu Item declarations
 const PROGMEM AnyMenuInfo minfoSafePowerdown = { "Safe Powerdown", 78, 0xffff, 0, SafePowerdown };
 ActionMenuItem menuSafePowerdown(&minfoSafePowerdown, NULL);
-const PROGMEM AnyMenuInfo minfoExitMenu = { "Exit", 50, 0xffff, 0, ExitMenuCallback };
-ActionMenuItem menuExitMenu(&minfoExitMenu, &menuSafePowerdown);
+const PROGMEM AnyMenuInfo minfoExitVar = { "Exit", 95, 0xffff, 0, ExitCallback };
+ActionMenuItem menuExitVar(&minfoExitVar, &menuSafePowerdown);
 const PROGMEM AnyMenuInfo minfoClearUsageCntrs = { "Clear", 80, 0xffff, 0, ClearUsageCntrs };
 ActionMenuItem menuClearUsageCntrs(&minfoClearUsageCntrs, NULL);
 const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Display", 81, 0xffff, 0, DisplayUsageCntrs };
@@ -31,36 +31,40 @@ ActionMenuItem menuDisplayUsageCntrs(&minfoDisplayUsageCntrs, &menuClearUsageCnt
 RENDERING_CALLBACK_NAME_INVOKE(fnUsageCountersRtCall, backSubItemRenderFn, "Usage Counters", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoUsageCounters = { "Usage Counters", 79, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackUsageCounters(fnUsageCountersRtCall, &menuDisplayUsageCntrs);
-SubMenuItem menuUsageCounters(&minfoUsageCounters, &menuBackUsageCounters, &menuExitMenu);
-RENDERING_CALLBACK_NAME_INVOKE(fnCoolingHysteresisRtCall, largeNumItemRenderFn, "Hysteresis", 56, CoolingHysteresisCallback)
-EditableLargeNumberMenuItem menuCoolingHysteresis(fnCoolingHysteresisRtCall, 75, 4, 2, false, NULL);
-RENDERING_CALLBACK_NAME_INVOKE(fnCoolingCalRtCall, largeNumItemRenderFn, "Cooling Cal", 48, CoolingCalCallback)
-EditableLargeNumberMenuItem menuCoolingCal(fnCoolingCalRtCall, 74, 4, 2, true, &menuCoolingHysteresis);
-RENDERING_CALLBACK_NAME_INVOKE(fnCoolingSettingsRtCall, backSubItemRenderFn, "Cooling Settings", -1, NO_CALLBACK)
-const PROGMEM SubMenuInfo minfoCoolingSettings = { "Cooling Settings", 66, 0xffff, 0, NO_CALLBACK };
-BackMenuItem menuBackCoolingSettings(fnCoolingSettingsRtCall, &menuCoolingCal);
-SubMenuItem menuCoolingSettings(&minfoCoolingSettings, &menuBackCoolingSettings, NULL);
-RENDERING_CALLBACK_NAME_INVOKE(fnTempHysteresisRtCall, largeNumItemRenderFn, "Hysteresis", 40, TempHysteresisCallback)
-EditableLargeNumberMenuItem menuTempHysteresis(fnTempHysteresisRtCall, 73, 4, 2, false, NULL);
-RENDERING_CALLBACK_NAME_INVOKE(fnTempCalRtCall, largeNumItemRenderFn, "Temp Cal", 32, TempCalCallback)
-EditableLargeNumberMenuItem menuTempCal(fnTempCalRtCall, 72, 4, 2, true, &menuTempHysteresis);
-RENDERING_CALLBACK_NAME_INVOKE(fnHeatingSettingsRtCall, backSubItemRenderFn, "Heating Settings", -1, NO_CALLBACK)
-const PROGMEM SubMenuInfo minfoHeatingSettings = { "Heating Settings", 42, 0xffff, 0, NO_CALLBACK };
-BackMenuItem menuBackHeatingSettings(fnHeatingSettingsRtCall, &menuTempCal);
-SubMenuItem menuHeatingSettings(&minfoHeatingSettings, &menuBackHeatingSettings, &menuCoolingSettings);
-RENDERING_CALLBACK_NAME_INVOKE(fnHumdHysteresisRtCall, largeNumItemRenderFn, "Hysteresis", 24, HumdHysteresisCallback)
-EditableLargeNumberMenuItem menuHumdHysteresis(fnHumdHysteresisRtCall, 71, 4, 2, false, NULL);
-RENDERING_CALLBACK_NAME_INVOKE(fnHumidityCalRtCall, largeNumItemRenderFn, "Humidity Cal", 16, HumidityCalCallback)
-EditableLargeNumberMenuItem menuHumidityCal(fnHumidityCalRtCall, 70, 4, 2, true, &menuHumdHysteresis);
-const PROGMEM AnalogMenuInfo minfoMinRunTime = { "Min Run Time", 52, 10, 180, MinRunTimeCallback, 0, 1, " min" };
-AnalogMenuItem menuMinRunTime(&minfoMinRunTime, 0, &menuHumidityCal);
-RENDERING_CALLBACK_NAME_INVOKE(fnHumiditySettingsRtCall, backSubItemRenderFn, "Humidity Settings", -1, NO_CALLBACK)
-const PROGMEM SubMenuInfo minfoHumiditySettings = { "Humidity Settings", 15, 0xffff, 0, NO_CALLBACK };
-BackMenuItem menuBackHumiditySettings(fnHumiditySettingsRtCall, &menuMinRunTime);
-SubMenuItem menuHumiditySettings(&minfoHumiditySettings, &menuBackHumiditySettings, &menuHeatingSettings);
+SubMenuItem menuUsageCounters(&minfoUsageCounters, &menuBackUsageCounters, &menuExitVar);
+RENDERING_CALLBACK_NAME_INVOKE(fnBaroRapidLoLimitRtCall, largeNumItemRenderFn, "Pr Rapid", 72, BaroRapidLoLimitCallback)
+EditableLargeNumberMenuItem menuBaroRapidLoLimit(fnBaroRapidLoLimitRtCall, 93, 5, 4, false, NULL);
+RENDERING_CALLBACK_NAME_INVOKE(fnBaroSteadyUpLimitRtCall, largeNumItemRenderFn, "Pr Steady", 64, BaroSteadyUpLimitCallback)
+EditableLargeNumberMenuItem menuBaroSteadyUpLimit(fnBaroSteadyUpLimitRtCall, 92, 5, 4, false, &menuBaroRapidLoLimit);
+const PROGMEM AnalogMenuInfo minfoMinRunTime = { "DH Min RT", 91, 10, 180, MinRunTimeCallback, 0, 1, " min" };
+AnalogMenuItem menuMinRunTime(&minfoMinRunTime, 0, &menuBaroSteadyUpLimit);
+RENDERING_CALLBACK_NAME_INVOKE(fnMiscellaneousRtCall, backSubItemRenderFn, "Miscellaneous", -1, NO_CALLBACK)
+const PROGMEM SubMenuInfo minfoMiscellaneous = { "Miscellaneous", 90, 0xffff, 0, NO_CALLBACK };
+BackMenuItem menuBackMiscellaneous(fnMiscellaneousRtCall, &menuMinRunTime);
+SubMenuItem menuMiscellaneous(&minfoMiscellaneous, &menuBackMiscellaneous, NULL);
+RENDERING_CALLBACK_NAME_INVOKE(fnPressureCalRtCall, largeNumItemRenderFn, "Pressure", 48, PressureCalCallback)
+EditableLargeNumberMenuItem menuPressureCal(fnPressureCalRtCall, 85, 4, 2, true, NULL);
+RENDERING_CALLBACK_NAME_INVOKE(fnTemperatureCalRtCall, largeNumItemRenderFn, "Temperature", 32, TempCalCallback)
+EditableLargeNumberMenuItem menuTemperatureCal(fnTemperatureCalRtCall, 84, 4, 2, true, &menuPressureCal);
+RENDERING_CALLBACK_NAME_INVOKE(fnHumidityCalRtCall, largeNumItemRenderFn, "Humidity", 16, HumidityCalCallback)
+EditableLargeNumberMenuItem menuHumidityCal(fnHumidityCalRtCall, 83, 4, 2, true, &menuTemperatureCal);
+RENDERING_CALLBACK_NAME_INVOKE(fnSensorCalibrationRtCall, backSubItemRenderFn, "Sensor Calibration", -1, NO_CALLBACK)
+const PROGMEM SubMenuInfo minfoSensorCalibration = { "Sensor Calibration", 82, 0xffff, 0, NO_CALLBACK };
+BackMenuItem menuBackSensorCalibration(fnSensorCalibrationRtCall, &menuHumidityCal);
+SubMenuItem menuSensorCalibration(&minfoSensorCalibration, &menuBackSensorCalibration, &menuMiscellaneous);
+RENDERING_CALLBACK_NAME_INVOKE(fnHumdHysteresisRtCall, largeNumItemRenderFn, "Dehumidifying", 24, HumdHysteresisCallback)
+EditableLargeNumberMenuItem menuHumdHysteresis(fnHumdHysteresisRtCall, 89, 4, 2, false, NULL);
+RENDERING_CALLBACK_NAME_INVOKE(fnHeatingHysteresisRtCall, largeNumItemRenderFn, "Heating", 40, HeatingHysteresisCallback)
+EditableLargeNumberMenuItem menuHeatingHysteresis(fnHeatingHysteresisRtCall, 88, 4, 2, false, &menuHumdHysteresis);
+RENDERING_CALLBACK_NAME_INVOKE(fnCoolingHysteresisRtCall, largeNumItemRenderFn, "Cooling", 56, CoolingHysteresisCallback)
+EditableLargeNumberMenuItem menuCoolingHysteresis(fnCoolingHysteresisRtCall, 87, 4, 2, false, &menuHeatingHysteresis);
+RENDERING_CALLBACK_NAME_INVOKE(fnHysteresisRtCall, backSubItemRenderFn, "Hysteresis", -1, NO_CALLBACK)
+const PROGMEM SubMenuInfo minfoHysteresis = { "Hysteresis", 86, 0xffff, 0, NO_CALLBACK };
+BackMenuItem menuBackHysteresis(fnHysteresisRtCall, &menuCoolingHysteresis);
+SubMenuItem menuHysteresis(&minfoHysteresis, &menuBackHysteresis, &menuSensorCalibration);
 RENDERING_CALLBACK_NAME_INVOKE(fnThermostatSettingsRtCall, backSubItemRenderFn, "Settings", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoThermostatSettings = { "Settings", 8, 0xffff, 0, NO_CALLBACK };
-BackMenuItem menuBackThermostatSettings(fnThermostatSettingsRtCall, &menuHumiditySettings);
+BackMenuItem menuBackThermostatSettings(fnThermostatSettingsRtCall, &menuHysteresis);
 SubMenuItem menuThermostatSettings(&minfoThermostatSettings, &menuBackThermostatSettings, &menuUsageCounters);
 const char enumStrFanEnum_0[] PROGMEM = "On";
 const char enumStrFanEnum_1[] PROGMEM = "Auto";

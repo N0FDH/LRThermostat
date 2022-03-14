@@ -60,9 +60,9 @@
       "type": "subMenu",
       "item": {
         "secured": false,
-        "name": "Humidity Settings",
-        "variableName": "HumiditySettings",
-        "id": 15,
+        "name": "Hysteresis",
+        "variableName": "Hysteresis",
+        "id": 86,
         "eepromAddress": -1,
         "readOnly": false,
         "localOnly": false,
@@ -70,50 +70,49 @@
       }
     },
     {
-      "parentId": 15,
-      "type": "analogItem",
-      "item": {
-        "maxValue": 180,
-        "offset": 0,
-        "divisor": 1,
-        "unitName": " min",
-        "name": "Min Run Time",
-        "variableName": "MinRunTime",
-        "id": 52,
-        "eepromAddress": 10,
-        "functionName": "MinRunTimeCallback",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 15,
-      "type": "largeNumItem",
-      "item": {
-        "digitsAllowed": 4,
-        "decimalPlaces": 2,
-        "negativeAllowed": true,
-        "name": "Humidity Cal",
-        "variableName": "HumidityCal",
-        "id": 70,
-        "eepromAddress": 16,
-        "functionName": "HumidityCalCallback",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 15,
+      "parentId": 86,
       "type": "largeNumItem",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
         "negativeAllowed": false,
-        "name": "Hysteresis",
+        "name": "Cooling",
+        "variableName": "CoolingHysteresis",
+        "id": 87,
+        "eepromAddress": 56,
+        "functionName": "CoolingHysteresisCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 86,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": false,
+        "name": "Heating",
+        "variableName": "HeatingHysteresis",
+        "id": 88,
+        "eepromAddress": 40,
+        "functionName": "HeatingHysteresisCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 86,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": false,
+        "name": "Dehumidifying",
         "variableName": "HumdHysteresis",
-        "id": 71,
+        "id": 89,
         "eepromAddress": 24,
         "functionName": "HumdHysteresisCallback",
         "readOnly": false,
@@ -126,9 +125,9 @@
       "type": "subMenu",
       "item": {
         "secured": false,
-        "name": "Heating Settings",
-        "variableName": "HeatingSettings",
-        "id": 42,
+        "name": "Sensor Calibration",
+        "variableName": "SensorCalibration",
+        "id": 82,
         "eepromAddress": -1,
         "readOnly": false,
         "localOnly": false,
@@ -136,15 +135,32 @@
       }
     },
     {
-      "parentId": 42,
+      "parentId": 82,
       "type": "largeNumItem",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
         "negativeAllowed": true,
-        "name": "Temp Cal",
-        "variableName": "TempCal",
-        "id": 72,
+        "name": "Humidity",
+        "variableName": "HumidityCal",
+        "id": 83,
+        "eepromAddress": 16,
+        "functionName": "HumidityCalCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 82,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 4,
+        "decimalPlaces": 2,
+        "negativeAllowed": true,
+        "name": "Temperature",
+        "variableName": "TemperatureCal",
+        "id": 84,
         "eepromAddress": 32,
         "functionName": "TempCalCallback",
         "readOnly": false,
@@ -153,17 +169,17 @@
       }
     },
     {
-      "parentId": 42,
+      "parentId": 82,
       "type": "largeNumItem",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
-        "negativeAllowed": false,
-        "name": "Hysteresis",
-        "variableName": "TempHysteresis",
-        "id": 73,
-        "eepromAddress": 40,
-        "functionName": "TempHysteresisCallback",
+        "negativeAllowed": true,
+        "name": "Pressure",
+        "variableName": "PressureCal",
+        "id": 85,
+        "eepromAddress": 48,
+        "functionName": "PressureCalCallback",
         "readOnly": false,
         "localOnly": false,
         "visible": true
@@ -174,9 +190,9 @@
       "type": "subMenu",
       "item": {
         "secured": false,
-        "name": "Cooling Settings",
-        "variableName": "CoolingSettings",
-        "id": 66,
+        "name": "Miscellaneous",
+        "variableName": "Miscellaneous",
+        "id": 90,
         "eepromAddress": -1,
         "readOnly": false,
         "localOnly": false,
@@ -184,34 +200,52 @@
       }
     },
     {
-      "parentId": 66,
-      "type": "largeNumItem",
+      "parentId": 90,
+      "type": "analogItem",
       "item": {
-        "digitsAllowed": 4,
-        "decimalPlaces": 2,
-        "negativeAllowed": true,
-        "name": "Cooling Cal",
-        "variableName": "CoolingCal",
-        "id": 74,
-        "eepromAddress": 48,
-        "functionName": "CoolingCalCallback",
+        "maxValue": 180,
+        "offset": 0,
+        "divisor": 1,
+        "unitName": " min",
+        "name": "DH Min RT",
+        "variableName": "MinRunTime",
+        "id": 91,
+        "eepromAddress": 10,
+        "functionName": "MinRunTimeCallback",
         "readOnly": false,
         "localOnly": false,
         "visible": true
       }
     },
     {
-      "parentId": 66,
+      "parentId": 90,
       "type": "largeNumItem",
       "item": {
-        "digitsAllowed": 4,
-        "decimalPlaces": 2,
+        "digitsAllowed": 5,
+        "decimalPlaces": 4,
         "negativeAllowed": false,
-        "name": "Hysteresis",
-        "variableName": "CoolingHysteresis",
-        "id": 75,
-        "eepromAddress": 56,
-        "functionName": "CoolingHysteresisCallback",
+        "name": "Pr Steady",
+        "variableName": "BaroSteadyUpLimit",
+        "id": 92,
+        "eepromAddress": 64,
+        "functionName": "BaroSteadyUpLimitCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 90,
+      "type": "largeNumItem",
+      "item": {
+        "digitsAllowed": 5,
+        "decimalPlaces": 4,
+        "negativeAllowed": false,
+        "name": "Pr Rapid",
+        "variableName": "BaroRapidLoLimit",
+        "id": 93,
+        "eepromAddress": 72,
+        "functionName": "BaroRapidLoLimitCallback",
         "readOnly": false,
         "localOnly": false,
         "visible": true
@@ -264,10 +298,10 @@
       "type": "actionMenu",
       "item": {
         "name": "Exit",
-        "variableName": "ExitMenu",
-        "id": 50,
+        "variableName": "ExitVar",
+        "id": 95,
         "eepromAddress": -1,
-        "functionName": "ExitMenuCallback",
+        "functionName": "ExitCallback",
         "readOnly": false,
         "localOnly": false,
         "visible": true
