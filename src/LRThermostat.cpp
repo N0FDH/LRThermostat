@@ -13,7 +13,7 @@
 // 6) DONE - Add barometric pressure to display
 // 7) DONE - Which relay is cycling when transitioning from menu to normal display right after boot?
 // 8) DONE - Add a calibration menu item for baro -------------------------------------------------------------------------------------
-// 8.1) Redo Baro limit stuff
+// 8.1) Remove baro rapid tcmenu item
 // 9) Write main HTML status page including uptime and "on times"
 // 10) Add a menu item to display:
 //                WiFi signal strength
@@ -50,7 +50,7 @@
 #define INACTIVITY_TIMEOUT 10000       // 10000 mS = 10 sec
 #define COMPRESSOR_DELAY (5 * 60)      // 5 minutes (counted in seconds)
 #define LOOP_1_SEC 1000                // 1000 mS = 1 sec
-#define T_15MIN_IN_SEC (15 * 60)       // 1/4 hour (counted in seconds)
+#define T_10MIN_IN_SEC (10 * 60)       // 10 min (counted in seconds)
 #define T_6HOURS_IN_SEC (6 * 3600)     // 6 hours (counted in seconds)
 #define T_100MS 100                    // 100 mS
 #define UINT32_ERASED_VALUE 0xFFFFFFFF // erased value in eeprom/flash
@@ -69,10 +69,9 @@ float curTemp = 0; // BME280
 float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
+#define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
 uint32_t baroSteady; // upper baro pressure limit for 'steady'
-uint32_t baroRapid;  // lower baro limit for 'rapid'
-
-int8_t baroDir = 0;
+int32_t baroDir = 0; // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
 
 // The following variables are loaded from the menu
 // START of tcMenu loaded variables
@@ -230,7 +229,7 @@ void setup()
 void loop()
 {
     uint32_t time1sec = millis() + LOOP_1_SEC;
-    uint32_t time15min = 3;             // countdown
+    uint32_t time10min = 3;             // countdown
     uint32_t time6hr = T_6HOURS_IN_SEC; // countdown
     uint32_t curTime;
     uint32_t wifiRetry = 0;
@@ -343,12 +342,12 @@ void loop()
                 }
             }
 
-            // Once every 1/4 hour, check on barometric pressure and adjust
+            // Once every 10 min, check on barometric pressure and adjust
             // rising, falling indicator.
-            if (--time15min == 0)
+            if (--time10min == 0)
             {
                 updateBaroRiseFall();
-                time15min = T_15MIN_IN_SEC;
+                time10min = T_10MIN_IN_SEC;
             }
 
             // Once every 6 hours, add in the control usage seconds.
@@ -427,16 +426,16 @@ void accumulateUsage()
     dhSeconds = 0;
 }
 
+#define BARO_CNT 18
+#define BARO_IDX_10MIN 0
+#define BARO_IDX_20MIN 1
+#define BARO_IDX_3HR (BARO_CNT - 1)
 void updateBaroRiseFall()
 {
-#define BARO_CNT 12
-    static int16_t oldBaro[BARO_CNT] = {0}; // 3 hrs history, once every 15 min
+    static int16_t oldBaro[BARO_CNT] = {0}; // 3 hrs history, once every 10 min
 
-    // keep integer + 3 decimal places, rounded first
-    int32_t curBaroInt = (int32_t)((curBaro + 0.0005) * 1000);
-
-    int32_t diff;
-    bool baroSign = 1;
+    // Get baro int
+    int32_t curBaroInt = BARO_FLOAT_TO_INT(curBaro);
 
     // determine if ever initialized
     if (oldBaro[0] == 0)
@@ -447,37 +446,39 @@ void updateBaroRiseFall()
         }
     }
 
-    // See how much we have shifted in 3 hours
-    diff = curBaroInt - oldBaro[BARO_CNT - 1];
+    // See how much we have shifted in the 3 intervals
+    int32_t diff10min = curBaroInt - oldBaro[BARO_IDX_10MIN];
+    int32_t diff20min = curBaroInt - oldBaro[BARO_IDX_20MIN];
+    int32_t diff3hr = curBaroInt - oldBaro[BARO_IDX_3HR];
 
-    if (diff < 0)
-    {
-        diff = -diff;
-        baroSign = -1;
-    }
+    // https://www.faa.gov/documentLibrary/media/Order/JO_7900.5E_with_Change_1.pdf, p.76
+    // g.Pressure Falling Rapidly. Pressure falling rapidly occurs when station pressure falls at
+    // the rate of at least .06 inch(2.03 hPa) or more per hour which totals 0.02 inch(0.68 hPa)
+    // or more at time of observation. (SAME FOR RISING).
+    // .060 in/hr == 0.010 in/10min
 
-    Serial.printf("Baro limits: rapid: %u, steady: %u\n", baroRapid, baroSteady);
-
-    // https://sciencing.com/high-low-reading-barometric-pressure-5814364.html
-    baroDir = 0;
-    if (diff > baroRapid)
+    if (((diff10min > 0) && (diff20min > 0)) || ((diff10min < 0) && (diff20min < 0)))
     {
-        baroDir = 2;
+        // "10" & "20" (below) are not "magic numbers" per se, as they are derived directly
+        // from the document, after converting to integers of course.
+        if ((abs(diff10min) >= 10) && (abs(diff20min) >= 20))
+        {
+            baroDir = (diff10min > 0) ? 2 : -2;
+        }
     }
-    else if (diff > baroSteady)
-    {
-        baroDir = 1;
-    }
-    else
+    else if (abs(diff3hr) <= baroSteady)
     {
         baroDir = 0;
     }
+    else
+    {
+        baroDir = (diff3hr > 0) ? 1 : -1;
+    }
 
-    // add in the sign
-    baroDir *= baroSign;
-
-    Serial.printf("curBaro: %i, oldBaro: %i, diff: %i, dir: %i\n",
-                  curBaroInt, oldBaro[BARO_CNT - 1], diff, baroDir);
+    Serial.printf("curBaro: %i,   b10m: %i,   b20m: %i,   b3hr: %i\n",
+                  curBaroInt, oldBaro[BARO_IDX_10MIN], oldBaro[BARO_IDX_20MIN], oldBaro[BARO_IDX_3HR]);
+    Serial.printf("                diff10: %i,     diff20: %i,     diff3h: %i,     baroDir: %i\n",
+                  diff10min, diff20min, diff3hr, baroDir);
 
     // shift baro history down
     for (int i = (BARO_CNT - 1); i > 0; i--)
@@ -620,14 +621,9 @@ void loadMenuChanges()
     {
         menuBaroSteadyUpLimit.getLargeNumber()->setNegative(FALSE);
     }
-    if (menuBaroRapidLoLimit.getLargeNumber()->isNegative())
-    {
-        menuBaroRapidLoLimit.getLargeNumber()->setNegative(FALSE);
-    }
 
-    // keep integer + 3 decimal places, rounded first
-    baroSteady = (uint32_t)((menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat() + 0.0005) * 1000);
-    baroRapid = (uint32_t)((menuBaroRapidLoLimit.getLargeNumber()->getAsFloat() + 0.0005) * 1000);
+    // Get baro limit as an integer
+    baroSteady = BARO_FLOAT_TO_INT(menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat());
 
     switch (mode)
     {
@@ -1036,9 +1032,7 @@ void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id)
 
 void CALLBACK_FUNCTION BaroRapidLoLimitCallback(int id)
 {
-    float val = menuBaroRapidLoLimit.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - BaroRapid: %0.4f\n", val);
-    menuChg = TRUE;
+    Serial.printf("TODO: REMOVE!\n");
 }
 
 void CALLBACK_FUNCTION PressureCalCallback(int id)
