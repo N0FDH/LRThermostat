@@ -11,11 +11,17 @@
 //           We want to shut off at the specified humidity level.
 // 5) DONE - Don't hang waiting for WiFi connection. Should be able to operate without WiFi.
 // 6) DONE - Add barometric pressure to display
-// -------------------------------------------------------------------------------------
-// 7) Write main HTML status page including uptime and "on times"
-// 8) Which relay is cycling when transitioning from menu to normal display right after boot?
-// 9) Add a calibration menu item for baro
-// 10) Add a menu item to display WiFi signal strength
+// 7) DONE - Which relay is cycling when transitioning from menu to normal display right after boot?
+// 8) DONE - Add a calibration menu item for baro -------------------------------------------------------------------------------------
+// 8.1) Redo Baro limit stuff
+// 9) Write main HTML status page including uptime and "on times"
+// 10) Add a menu item to display:
+//                WiFi signal strength
+//                SSID
+//                IP addr
+//                MAC
+//                FW version
+//                Uptime
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -23,9 +29,12 @@
 #include <Filter.h>
 #include <time.h>
 #include <WiFi.h>
+#include <Esp.h>
 #include "LRThermostat.h"
 #include "LRThermostat_menu.h"
 #include "WifiCredentials.h"
+
+#define VERSION "1.0"
 
 #define DEBUG 1
 
@@ -101,6 +110,7 @@ uint32_t dhSeconds = 0;
 // Function declarations
 void checkLocalVarChanges();
 void saveLocToEEPROM();
+void saveMenuToEEPROM();
 void LocalDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
 void accumulateUsage();
 void loadMenuChanges();
@@ -112,7 +122,7 @@ void fanControl();
 void myResetCallback();
 void configEncoderForMode();
 void takeOverDisplay();
-void shutDownPrevMode();
+void shutDownPrevMode(bool force);
 void updateBaroRiseFall();
 
 // display func declarations
@@ -171,6 +181,9 @@ void setup()
     // Load initial menu values
     menuMgr.load(MENU_MAGIC_KEY);
     loadMenuChanges();
+
+    // pre-fill lastMode on startup
+    lastMode = mode;
 
     // Read up nvm local variables
     // Should really check return code here...
@@ -385,16 +398,22 @@ void checkLocalVarChanges()
 // Save local variables to EEPROM
 void saveLocToEEPROM()
 {
-    //    float zzz;
-    //    memset(&zzz, 0, sizeof(zzz));
-    //    EEPROM.writeBytes(64, &zzz, sizeof(zzz));
-
     EEPROM.writeBytes(EEPROM_LOCAL_VAR_ADDR, &loc, sizeof(EEPROM_LOCAL_VARS));
     EEPROM.commit();
     Serial.printf("Local data saved\n");
 
     chgdVars = {0};
     lclVarChgTime = 0;
+}
+
+// Save tcMenu variables to EEPROM
+void saveMenuToEEPROM()
+{
+    // save menu to EEPROM
+    menuMgr.save(MENU_MAGIC_KEY);
+    EEPROM.commit();
+
+    Serial.printf("Menu data saved, 0x%04X\n", (uint32_t)EEPROM.readUShort(0x0));
 }
 
 // Add non-saved usage data to 'loc' vars so they get saved to NVM
@@ -583,10 +602,7 @@ void loadMenuChanges()
     if (menuChg)
     {
         // save menu to EEPROM
-        menuMgr.save(MENU_MAGIC_KEY);
-        EEPROM.commit();
-
-        Serial.printf("Menu data saved, 0x%04X\n", (uint32_t)EEPROM.readUShort(0x0));
+        saveMenuToEEPROM();
         menuChg = FALSE;
     }
 
@@ -846,10 +862,10 @@ void configEncoderForMode()
     Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
 }
 
-void shutDownPrevMode()
+void shutDownPrevMode(bool force)
 {
     // Shut down previous mode if different
-    if (lastMode != mode)
+    if (force || (lastMode != mode))
     {
         ctlState = OFF;
 
@@ -862,7 +878,7 @@ void shutDownPrevMode()
 
 void takeOverDisplay()
 {
-    shutDownPrevMode();
+    shutDownPrevMode(FALSE);
     configEncoderForMode();
     renderer.takeOverDisplay(localDisplayFunction);
 }
@@ -992,13 +1008,23 @@ void CALLBACK_FUNCTION ClearUsageCntrs(int id)
 
 void CALLBACK_FUNCTION SafePowerdown(int id)
 {
+    // Save all variables to NVM
     accumulateUsage();
     saveLocToEEPROM();
+    saveMenuToEEPROM();
+
+    // Shut down thermostat functions
+    shutDownPrevMode(TRUE);
 
     tft.fillScreen(TFT_BLACK);
     tft.setCursor(0, 0, 2);
 
-    tft.printf("It is safe to power off!\n");
+    tft.printf("It is safe to power off!\n\n");
+    tft.printf("The system will restart\nin 60 seconds.\n");
+
+    // The ONLY delay() found in this FW :)
+    delay(60 * 1000);
+    ESP.restart();
 }
 
 void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id)
