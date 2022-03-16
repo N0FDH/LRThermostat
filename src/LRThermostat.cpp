@@ -70,7 +70,6 @@ float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
 #define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
-uint32_t baroSteady; // upper baro pressure limit for 'steady'
 int32_t baroDir = 0; // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
 
 // The following variables are loaded from the menu
@@ -83,6 +82,8 @@ uint32_t dhMinRunTime = 0; // Dehumidifier minimim run time before shutting off
 
 MODE mode, lastMode; // Current mode and last mode
 FAN fan;             // fan state
+
+int32_t baroSteady; // upper baro pressure limit for 'steady'
 // END of tcMenu loaded variables
 
 bool ctlState = OFF; // heat/cool/dh state
@@ -107,6 +108,10 @@ uint32_t coolSeconds = 0;
 uint32_t dhSeconds = 0;
 
 // Function declarations
+float readTemperature();
+float readHumidity();
+float readPressure();
+void initBME280();
 void checkLocalVarChanges();
 void saveLocToEEPROM();
 void saveMenuToEEPROM();
@@ -170,12 +175,7 @@ void setup()
     renderer.setResetCallback(myResetCallback);
 
     // Additional hardware setup not done by tcMenu
-    if (!bme.begin(0x76))
-    {
-        tft.println("BME280 error");
-        while (1)
-            ;
-    }
+    initBME280();
 
     // Load initial menu values
     menuMgr.load(MENU_MAGIC_KEY);
@@ -327,13 +327,10 @@ void loop()
                 time(&now);
 
                 // This may never happen if not connected to Wifi, but that should be OK
-                if (now > A_KNOWN_GOOD_TIME) // "9/13/2020 12:26:40" in case you are wondering :)
+                if (now > A_KNOWN_GOOD_TIME)
                 {
                     loc.bootTime = now;
                     Serial.printf("boot at %u\n", loc.bootTime);
-                    Serial.printf("heat on %u\n", loc.heatSeconds);
-                    Serial.printf("ac on   %u\n", loc.coolSeconds);
-                    Serial.printf("dh on   %u\n", loc.dhSeconds);
 
                     if (loc.lastClear == UINT32_ERASED_VALUE)
                     {
@@ -457,30 +454,34 @@ void updateBaroRiseFall()
     // or more at time of observation. (SAME FOR RISING).
     // .060 in/hr == 0.010 in/10min
 
-    if (((diff10min > 0) && (diff20min > 0)) || ((diff10min < 0) && (diff20min < 0)))
+    // "10" & "20" (below) are not "magic numbers" per se, as they are derived directly
+    // from the document, after converting to integers of course.
+
+    // Check for rapid change; be sure both are either + or -
+    if ((((diff10min > 0) && (diff20min > 0)) || ((diff10min < 0) && (diff20min < 0))) &&
+        ((abs(diff10min) >= 10) && (abs(diff20min) >= 10)))
     {
-        // "10" & "20" (below) are not "magic numbers" per se, as they are derived directly
-        // from the document, after converting to integers of course.
-        if ((abs(diff10min) >= 10) && (abs(diff20min) >= 20))
-        {
-            baroDir = (diff10min > 0) ? 2 : -2;
-        }
+        baroDir = (diff10min > 0) ? 2 : -2;
     }
+    // Check for steady
     else if (abs(diff3hr) <= baroSteady)
     {
         baroDir = 0;
     }
+    // Everything else is a slow or moderate change
     else
     {
         baroDir = (diff3hr > 0) ? 1 : -1;
     }
 
-    Serial.printf("curBaro: %i,   b10m: %i,   b20m: %i,   b3hr: %i\n",
-                  curBaroInt, oldBaro[BARO_IDX_10MIN], oldBaro[BARO_IDX_20MIN], oldBaro[BARO_IDX_3HR]);
-    Serial.printf("                diff10: %i,     diff20: %i,     diff3h: %i,     baroDir: %i\n",
-                  diff10min, diff20min, diff3hr, baroDir);
+    Serial.printf("curBaro: %i, b10m: %i/%hi, b20m: %i/%hi, b3hr: %i/%hi, steady: %i, dir: %i\n",
+                  curBaroInt,
+                  oldBaro[BARO_IDX_10MIN], diff10min,
+                  oldBaro[BARO_IDX_20MIN], diff20min,
+                  oldBaro[BARO_IDX_3HR], diff3hr,
+                  baroSteady, baroDir);
 
-    // shift baro history down
+    // shift baro history down and capture most recent
     for (int i = (BARO_CNT - 1); i > 0; i--)
     {
         oldBaro[i] = oldBaro[i - 1];
@@ -668,26 +669,67 @@ void readSensors()
     if (readSensorsInit == FALSE)
     {
         // Throw out first reading
-        bme.readTemperature();
-        bme.readHumidity();
-        bme.readPressure();
+        readTemperature();
+        readHumidity();
+        readPressure();
 
         // Read a second time to initialize the filter
-        tempFilter.SetCurrent(bme.readTemperature());
-        humdFilter.SetCurrent(bme.readHumidity());
-        baroFilter.SetCurrent(bme.readPressure());
+        tempFilter.SetCurrent(readTemperature());
+        humdFilter.SetCurrent(readHumidity());
+        baroFilter.SetCurrent(readPressure());
         readSensorsInit = TRUE;
     }
 
     // Run the filter
-    tempFilter.Filter(bme.readTemperature());
-    humdFilter.Filter(bme.readHumidity());
-    baroFilter.Filter(bme.readPressure());
+    tempFilter.Filter(readTemperature());
+    humdFilter.Filter(readHumidity());
+    baroFilter.Filter(readPressure());
 
     // Extract and post-process the readings
     curTemp = tempFilter.Current() * 1.8 + 32 + tempCal;
     curHumd = humdFilter.Current() + humdCal;
     curBaro = baroFilter.Current() / 3386.39 + baroCal;
+}
+
+void initBME280()
+{
+    if (!bme.begin(0x76))
+    {
+        tft.println("BME280 error");
+        while (1)
+            ;
+    }
+    Serial.printf("BME280 initialized\n");
+}
+
+float readPressure()
+{
+    float v;
+    while ((v = bme.readPressure()) == NAN)
+    {
+        initBME280();
+    }
+    return v;
+}
+
+float readHumidity()
+{
+    float v;
+    while ((v = bme.readHumidity()) == NAN)
+    {
+        initBME280();
+    }
+    return v;
+}
+
+float readTemperature()
+{
+    float v;
+    while ((v = bme.readTemperature()) == NAN)
+    {
+        initBME280();
+    }
+    return v;
 }
 
 void heatControl()
