@@ -452,14 +452,12 @@ void updateBaroRiseFall()
     // g.Pressure Falling Rapidly. Pressure falling rapidly occurs when station pressure falls at
     // the rate of at least .06 inch(2.03 hPa) or more per hour which totals 0.02 inch(0.68 hPa)
     // or more at time of observation. (SAME FOR RISING).
-    // .060 in/hr == 0.010 in/10min
 
-    // "10" & "20" (below) are not "magic numbers" per se, as they are derived directly
-    // from the document, after converting to integers of course.
-
-    // Check for rapid change; be sure both are either + or -
-    if ((((diff10min > 0) && (diff20min > 0)) || ((diff10min < 0) && (diff20min < 0))) &&
-        ((abs(diff10min) >= 10) && (abs(diff20min) >= 10)))
+    // Check for rapid change
+    if ((((diff10min > 0) && (diff20min > 0)) ||
+         ((diff10min < 0) && (diff20min < 0))) && // both either + or -
+        ((abs(diff10min) >= 10) &&                // rate >= .06 in/hr (.060 in/hr == 0.010 in/10min)
+         (abs(diff20min) >= 20)))                 // total >= .02 in at time of observation
     {
         baroDir = (diff10min > 0) ? 2 : -2;
     }
@@ -686,15 +684,16 @@ void readSensors()
     baroFilter.Filter(readPressure());
 
     // Extract and post-process the readings
-    curTemp = tempFilter.Current() * 1.8 + 32 + tempCal;
+    curTemp = (tempFilter.Current() * 1.8) + 32 + tempCal;
     curHumd = humdFilter.Current() + humdCal;
-    curBaro = baroFilter.Current() / 3386.39 + baroCal;
+    curBaro = (baroFilter.Current() / 3386.39) + baroCal;
 }
 
 void initBME280()
 {
     if (!bme.begin(0x76))
     {
+        // We're screwed
         tft.println("BME280 error");
         while (1)
             ;
