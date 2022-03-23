@@ -12,16 +12,17 @@
 // 5) DONE - Don't hang waiting for WiFi connection. Should be able to operate without WiFi.
 // 6) DONE - Add barometric pressure to display
 // 7) DONE - Which relay is cycling when transitioning from menu to normal display right after boot?
-// 8) DONE - Add a calibration menu item for baro -------------------------------------------------------------------------------------
-// 8.1) Remove baro rapid tcmenu item
-// 9) Write main HTML status page including uptime and "on times"
-// 10) Add a menu item to display:
+// 8) DONE - Add a calibration menu item for baro // 8.1) Remove baro rapid tcmenu item
+// 9) !TODO - Write main HTML status page including uptime and "on times"
+// 10) !TODO - Add a menu item to display:
 //                WiFi signal strength
 //                SSID
 //                IP addr
 //                MAC
 //                FW version
 //                Uptime
+// 11) DONE - Change all display routines to x,y variable based.
+// 12) DONE - Clean up DH main display screen (swap set & temp, see whats up with main hum%)
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -34,7 +35,8 @@
 #include "LRThermostat_menu.h"
 #include "WifiCredentials.h"
 
-#define VERSION "1.0"
+#define VERSION "1.1"
+#define LORENS_PREFERENCES 1
 
 #define DEBUG 1
 
@@ -130,10 +132,9 @@ void shutDownPrevMode(bool force);
 void updateBaroRiseFall();
 
 // display func declarations
-void dispMainTemp();
-void dispTempSmall();
-void dispTempSetPt();
-void dispAcSetPt();
+void dispMain();
+void dispSmall();
+void dispSetPt();
 void dispCoolOn();
 void dispCoolOff();
 void dispCoolWait();
@@ -145,11 +146,7 @@ void dispDhOff();
 void dispModeOff();
 void dispFanOn();
 void dispFanOff();
-void dispHumiditySmall();
-void dispHumidityBig();
-void dispHumiditySetPt();
 void dispBaro();
-void dispBaroArrow(int32_t dir);
 
 void timeSetup();
 void wifiSetup();
@@ -521,23 +518,19 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
         *pSetPt = ENC_MAX - encoderValue;
     }
 
+    dispMain();
+    dispSmall();
+    dispBaro();
+    dispSetPt();
+
     // Items that get updated
     switch (mode)
     {
     case HEAT:
-        dispMainTemp();
-        dispHumiditySmall();
-        dispTempSetPt();
         (ctlState == ON) ? dispHeatOn() : dispHeatOff();
-        dispBaro();
         break;
 
     case COOL:
-        dispMainTemp();
-        dispHumiditySmall();
-        dispAcSetPt();
-        dispBaro();
-
         if (ctlState == OFF)
         {
             if (wait)
@@ -556,11 +549,6 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
         break;
 
     case DEHUMIDIFY:
-        dispTempSmall();
-        dispHumidityBig();
-        dispHumiditySetPt();
-        dispBaro();
-
         if (ctlState == OFF)
         {
             wait ? dispDhWait() : dispDhOff();
@@ -573,10 +561,7 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 
     default:
     case NO_MODE:
-        dispMainTemp();
-        dispHumiditySmall();
         dispModeOff();
-        dispBaro();
 
         break;
     }
@@ -1084,142 +1069,217 @@ void CALLBACK_FUNCTION PressureCalCallback(int id)
 }
 
 //******************************** Display Routines *******************************************
-void dispMainTemp()
+void dispMain()
 {
-    tft.setTextColor(TFT_CYAN, TFT_BLACK);     // Note: the new fonts do not draw the background colour
-    tft.drawNumber(round(curTemp), 47, 42, 7); // Temperature using font 7
-    tft.drawString("O", 114, 37, 2);
-}
+    int32_t x = 47;
+    int32_t y = 42;
 
-//****************************************** Temperature Set Point ****************************
-void dispTempSetPt()
-{
-    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    tft.drawString("SET", 100, 8, 1);
-    tft.setTextSize(2);
-    if (loc.heatSetPt > 9)
+    if (mode == DEHUMIDIFY)
     {
-        tft.drawNumber((uint32_t)loc.heatSetPt, 123, 8, 1); // font 1
+        tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+        tft.drawNumber(round(curHumd), x, y, 7); // Temperature using font 7
+        tft.drawString("%", x + 67, y - 5, 2);
     }
     else
     {
-        tft.drawString(" ", 123, 8, 1);
-        tft.drawNumber((uint32_t)loc.heatSetPt, 135, 8, 1); // font 1
+        tft.setTextColor(TFT_CYAN, TFT_BLACK);   // Note: the new fonts do not draw the background colour
+        tft.drawNumber(round(curTemp), x, y, 7); // Temperature using font 7
+        tft.drawString("O", x + 67, y - 5, 2);
     }
-    tft.setTextSize(1);
-    tft.drawString(" o", 145, 6, 1);
 }
 
-void dispAcSetPt()
+//******************************** Secondary Display ******************************************
+void dispSmall()
 {
-    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    tft.drawString("SET", 100, 8, 1);
-    tft.setTextSize(2);
-    if (loc.acSetPt > 9)
+    int32_t x = 8;
+    int32_t y = 8;
+
+    if (mode == DEHUMIDIFY)
     {
-        tft.drawNumber((uint32_t)loc.acSetPt, 123, 8, 1); // font 1
+        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+        tft.setTextSize(2);
+        tft.drawNumber(round(curTemp), x, y, 1); // font 1
+        tft.setTextSize(1);
+        tft.drawString(" o", x + 22, y - 2, 1);
     }
     else
     {
-        tft.drawString(" ", 123, 8, 1);
-        tft.drawNumber((uint32_t)loc.acSetPt, 135, 8, 1); // font 1
+        tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+        tft.setTextSize(2);
+        tft.drawNumber(round(curHumd), x, y, 1); // Humidity at font 1
+        tft.setTextSize(1);
+        tft.drawString(" %", x + 22, y - 2, 1);
     }
-    tft.setTextSize(1);
-    tft.drawString(" o", 145, 6, 1);
 }
 
-// ********************** Humidity Reading for when temperature is main screen ****************
-void dispHumiditySmall()
+//******************************* Set point ***************************************************
+void dispSetPt()
 {
-    tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+    int32_t x = 100;
+    int32_t y = 8;
+
+    if (mode == NO_MODE)
+    {
+        return;
+    }
+
+    tft.setTextColor(mode == DEHUMIDIFY ? TFT_PINK : TFT_YELLOW, TFT_BLACK);
+    tft.drawString("SET", x, y, 1);
     tft.setTextSize(2);
-    tft.drawNumber(round(curHumd), 8, 8, 1); // Humidity at font 1
+    if (*pSetPt > 9)
+    {
+        tft.drawNumber((uint32_t)(*pSetPt), x + 23, y, 1); // font 1
+    }
+    else
+    {
+        tft.drawString(" ", x + 23, y, 1);
+        tft.drawNumber((uint32_t)(*pSetPt), x + 35, y, 1); // font 1
+    }
     tft.setTextSize(1);
-    tft.drawString(" %", 30, 6, 1);
+    tft.drawString(mode == DEHUMIDIFY ? " %" : " o", x + 45, y - 2, 1);
 }
 
 //****************************************** MODES ********************************************
+#define MODE_DISP_X 8
+#define MODE_DISP_Y 105
 void dispCoolOff()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.drawString("COOL    ", 8, 115, 1);
-    tft.drawString("OFF ", 8, 105, 1);
+    tft.drawString("OFF ", x, y, 1);
+    tft.drawString("COOL    ", x, y + 10, 1);
 }
 
 void dispCoolWait()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.drawString("COOL    ", 8, 115, 1);
-    tft.drawString("WAIT", 8, 105, 1);
+    tft.drawString("WAIT", x, y, 1);
+    tft.drawString("COOL    ", x, y + 10, 1);
 }
 
 void dispCoolOn()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
-    tft.drawString("COOL    ", 8, 115, 1);
-    tft.drawString("ON  ", 8, 105, 1);
+    tft.drawString("ON  ", x, y, 1);
+    tft.drawString("COOL    ", x, y + 10, 1);
 }
 
 void dispHeatOff()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.drawString("HEAT    ", 8, 115, 1);
-    tft.drawString("OFF", 8, 105, 1);
+    tft.drawString("OFF", x, y, 1);
+    tft.drawString("HEAT    ", x, y + 10, 1);
 }
 
 void dispHeatOn()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.drawString("HEAT    ", 8, 115, 1);
-    tft.drawString("ON ", 8, 105, 1);
+    tft.drawString("ON ", x, y, 1);
+    tft.drawString("HEAT    ", x, y + 10, 1);
 }
 
 void dispDhOff()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.drawString("DEHUMIDIFY", 8, 115, 1);
-    tft.drawString("OFF ", 8, 105, 1);
+    tft.drawString("OFF ", x, y, 1);
+    tft.drawString("DEHUMIDIFY", x, y + 10, 1);
 }
 
 void dispDhWait()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
-    tft.drawString("DEHUMIDIFY", 8, 115, 1);
-    tft.drawString("WAIT", 8, 105, 1);
+    tft.drawString("WAIT", x, y, 1);
+    tft.drawString("DEHUMIDIFY", x, y + 10, 1);
 }
 
 void dispDhOn()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
-    tft.drawString("DEHUMIDIFY", 8, 115, 1);
-    tft.drawString("ON  ", 8, 105, 1);
+    tft.drawString("ON  ", x, y, 1);
+    tft.drawString("DEHUMIDIFY", x, y + 10, 1);
 }
 
 void dispModeOff()
 {
+    int32_t x = MODE_DISP_X;
+    int32_t y = MODE_DISP_Y;
+
     tft.setTextColor(TFT_RED, TFT_BLACK);
-    tft.drawString("          ", 8, 105, 1);
-    tft.drawString("OFF       ", 8, 115, 1);
+    tft.drawString("          ", x, y, 1);
+    tft.drawString("OFF       ", x, y + 10, 1);
+}
+
+//****************************************** Fan **********************************************
+#define FAN_DISP_X 8
+#define FAN_DISP_Y 57
+void dispFanOn()
+{
+    int32_t x = FAN_DISP_X;
+    int32_t y = FAN_DISP_Y;
+
+    tft.setTextColor(TFT_VIOLET, TFT_BLACK);
+    tft.drawString("FAN    ", x, y, 1);
+    tft.drawString("ON  ", x, y + 10, 1);
+}
+
+void dispFanOff()
+{
+    int32_t x = FAN_DISP_X;
+    int32_t y = FAN_DISP_Y;
+
+    tft.setTextColor(TFT_VIOLET, TFT_BLACK);
+    tft.drawString("       ", x, y, 1);
+    tft.drawString("    ", x, y + 10, 1);
 }
 
 //****************************************** Baro *********************************************
-// <0 = down, 0 = off, >0 = up
-void dispBaroArrow(int32_t dir)
+void dispBaro()
 {
+#if LORENS_PREFERENCES
+    int32_t digits = 1;
     int32_t x = 97;
+#else
+    int32_t digits = 2;
+    int32_t x = 85;
+#endif
     int32_t y = 108;
-    int16_t color = (abs(dir) > 1) ? TFT_RED : TFT_GOLD;
+
+    // Display the directional arrow
+    int16_t color = (abs(baroDir) > 1) ? TFT_RED : TFT_GOLD;
 
     int32_t up = TFT_BLACK;
     int32_t dn = TFT_BLACK;
     int32_t ln = TFT_BLACK;
 
-    if (dir < 0)
+    if (baroDir < 0)
     {
         dn = color;
         ln = color;
     }
-    else if (dir > 0)
+    else if (baroDir > 0)
     {
         up = color;
         ln = color;
@@ -1232,72 +1292,13 @@ void dispBaroArrow(int32_t dir)
     tft.drawLine(x + 4, y + 13, x + 7, y + 10, dn);
 
     tft.drawLine(x + 4, y + 0, x + 4, y + 13, ln);
-}
 
-void dispBaro()
-{
+    // Display numeric reading
     tft.setTextColor(TFT_GOLD, TFT_BLACK);
     tft.setTextSize(2);
-    tft.drawFloat(curBaro, 1, 108, 108, 1); // drawFloat does appropriate rounding
+    tft.drawFloat(curBaro, digits, x + 11, y, 1); // drawFloat does appropriate rounding
     tft.setTextSize(1);
-    tft.drawString("inHg", 131, 95, 1);
-
-    dispBaroArrow(baroDir);
-}
-
-//****************************************** Fan **********************************************
-void dispFanOn()
-{
-    tft.setTextColor(TFT_VIOLET, TFT_BLACK);
-    tft.drawString("FAN    ", 8, 57, 1);
-    tft.drawString("ON  ", 8, 67, 1);
-}
-
-void dispFanOff()
-{
-    tft.setTextColor(TFT_VIOLET, TFT_BLACK);
-    tft.drawString("       ", 8, 57, 1);
-    tft.drawString("    ", 8, 67, 1);
-}
-
-// ************************* Humidity Reading for when Humidity is main screen ****************
-void dispHumidityBig()
-{
-    tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-    tft.drawNumber(round(curHumd), 47, 42, 7); // Temperature using font 7
-
-    tft.setTextSize(2);
-    tft.drawString(" %", 103, 40, 1);
-    tft.setTextSize(1);
-}
-
-// ****************************** Humidity set point ******************************************
-void dispHumiditySetPt()
-{
-    tft.setTextColor(TFT_PINK, TFT_BLACK);
-    tft.setTextSize(2);
-    if (loc.dhSetPt > 9)
-    {
-        tft.drawNumber((uint32_t)loc.dhSetPt, 8, 8, 1); // font 1
-    }
-    else
-    {
-        tft.drawString(" ", 8, 8, 1);
-        tft.drawNumber((uint32_t)loc.dhSetPt, 20, 8, 1); // font 1
-    }
-    tft.setTextSize(1);
-    tft.drawString(" %", 30, 6, 1);
-    tft.drawString("SET", 48, 8, 1);
-}
-
-//******************************** Temperature in Dehumidity Mode *****************************
-void dispTempSmall()
-{
-    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-    tft.setTextSize(2);
-    tft.drawNumber(round(curTemp), 123, 8, 1); // font 1
-    tft.setTextSize(1);
-    tft.drawString(" o", 145, 6, 1);
+    tft.drawString("inHg", digits == 1 ? x + 34 : x + 46, y - 13, 1);
 }
 
 //*********************************************************************************************
