@@ -151,6 +151,7 @@ void dispBaro();
 void timeSetup();
 void wifiSetup();
 
+// Temp hack into the graphing function
 void graphit();
 
 // Main Arduino setup function
