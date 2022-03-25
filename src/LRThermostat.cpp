@@ -1077,8 +1077,8 @@ void CALLBACK_FUNCTION PressureCalCallback(int id)
 //******************************** Display Routines *******************************************
 void dispMain()
 {
-    int32_t x = 47;
-    int32_t y = 42;
+    const int32_t x = 47;
+    const int32_t y = 42;
 
     if (mode == DEHUMIDIFY)
     {
@@ -1097,8 +1097,8 @@ void dispMain()
 //******************************** Secondary Display ******************************************
 void dispSmall()
 {
-    int32_t x = 8;
-    int32_t y = 8;
+    const int32_t x = 8;
+    const int32_t y = 8;
 
     if (mode == DEHUMIDIFY)
     {
@@ -1121,8 +1121,8 @@ void dispSmall()
 //******************************* Set point ***************************************************
 void dispSetPt()
 {
-    int32_t x = 100;
-    int32_t y = 8;
+    const int32_t x = 100;
+    const int32_t y = 8;
 
     if (mode == NO_MODE)
     {
@@ -1147,95 +1147,95 @@ void dispSetPt()
 
 //****************************************** MODES ********************************************
 #define MODE_DISP_X 8
-#define MODE_DISP_Y 105
+#define MODE_DISP_Y 98
 void dispCoolOff()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("OFF ", x, y, 1);
-    tft.drawString("COOL    ", x, y + 10, 1);
+    tft.drawString("COOL    ", x, y + 11, 2);
 }
 
 void dispCoolWait()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("WAIT", x, y, 1);
-    tft.drawString("COOL    ", x, y + 10, 1);
+    tft.drawString("COOL    ", x, y + 11, 2);
 }
 
 void dispCoolOn()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
     tft.drawString("ON  ", x, y, 1);
-    tft.drawString("COOL    ", x, y + 10, 1);
+    tft.drawString("COOL    ", x, y + 11, 2);
 }
 
 void dispHeatOff()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("OFF", x, y, 1);
-    tft.drawString("HEAT    ", x, y + 10, 1);
+    tft.drawString("HEAT    ", x, y + 11, 2);
 }
 
 void dispHeatOn()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.drawString("ON ", x, y, 1);
-    tft.drawString("HEAT    ", x, y + 10, 1);
+    tft.drawString("HEAT    ", x, y + 11, 2);
 }
 
 void dispDhOff()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("OFF ", x, y, 1);
-    tft.drawString("DEHUMIDIFY", x, y + 10, 1);
+    tft.drawString("DEHUMIDIFY", x, y + 11, 2);
 }
 
 void dispDhWait()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_WHITE, TFT_BLACK);
     tft.drawString("WAIT", x, y, 1);
-    tft.drawString("DEHUMIDIFY", x, y + 10, 1);
+    tft.drawString("DEHUMIDIFY", x, y + 11, 2);
 }
 
 void dispDhOn()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
     tft.drawString("ON  ", x, y, 1);
-    tft.drawString("DEHUMIDIFY", x, y + 10, 1);
+    tft.drawString("DEHUMIDIFY", x, y + 11, 2);
 }
 
 void dispModeOff()
 {
-    int32_t x = MODE_DISP_X;
-    int32_t y = MODE_DISP_Y;
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
     tft.setTextColor(TFT_RED, TFT_BLACK);
     tft.drawString("          ", x, y, 1);
-    tft.drawString("OFF       ", x, y + 10, 1);
+    tft.drawString("OFF       ", x, y + 11, 2);
 }
 
 //****************************************** Fan **********************************************
@@ -1243,8 +1243,8 @@ void dispModeOff()
 #define FAN_DISP_Y 57
 void dispFanOn()
 {
-    int32_t x = FAN_DISP_X;
-    int32_t y = FAN_DISP_Y;
+    const int32_t x = FAN_DISP_X;
+    const int32_t y = FAN_DISP_Y;
 
     tft.setTextColor(TFT_VIOLET, TFT_BLACK);
     tft.drawString("FAN    ", x, y, 1);
@@ -1253,8 +1253,8 @@ void dispFanOn()
 
 void dispFanOff()
 {
-    int32_t x = FAN_DISP_X;
-    int32_t y = FAN_DISP_Y;
+    const int32_t x = FAN_DISP_X;
+    const int32_t y = FAN_DISP_Y;
 
     tft.setTextColor(TFT_VIOLET, TFT_BLACK);
     tft.drawString("       ", x, y, 1);
@@ -1265,13 +1265,13 @@ void dispFanOff()
 void dispBaro()
 {
 #if LORENS_PREFERENCES
-    int32_t digits = 1;
-    int32_t x = 97;
+    const int32_t digits = 1;
+    const int32_t x = 97;
 #else
-    int32_t digits = 2;
-    int32_t x = 85;
+    const int32_t digits = 2;
+    const int32_t x = 85;
 #endif
-    int32_t y = 108;
+    const int32_t y = 108;
 
     // Display the directional arrow
     int16_t color = (abs(baroDir) > 1) ? TFT_RED : TFT_GOLD;

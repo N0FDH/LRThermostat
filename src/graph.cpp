@@ -127,21 +127,53 @@ void graphit()
   c1 = 2.620131E-06;
   d1 = 6.383091E-08;
 
-  double x, y;
+  //  double x, y;
 
   tft.setRotation(3);
 
+  int32_t x;
+  double y;
+  int16_t data[72] =
+      {30025, 30034, 30041, 30044, 30040, 30019, 29995, 29990,
+       29982, 29971, 29972, 29975, 29983, 29979, 29981, 29981,
+       29978, 30014, 30009, 30010, 30000, 30000, 29995, 29993,
+       29987, 29987, 29991, 29996, 30005, 30014, 30017, 30022,
+       30021, 30031, 30025, 30034, 30041, 30044, 30040, 30019,
+       29995, 29990, 29982, 29971, 29972, 29975, 29983, 29979,
+       29981, 29981, 29978, 30014, 30009, 30010, 30000, 30000,
+       29995, 29993, 29987, 29987, 29991, 29996, 30005, 30014,
+       30017, 30022, 30021, 30031, 30033, 30031, 30030, 30030};
+
+  for (x = 0; x < 72; x++)
+  {
+    y = ((double)(data[x])) / 1000;
+    //                   gx   gy   w    h   xl  xh xi  yl  yh yi
+    //  Graph(tft, x, y, 60, 290, 390, 260, 0, 6.5, 1, -1, 1, .25, "Sin Function", "x", "sin(x)",
+    Graph(tft,
+          (double)x, y,
+          40, 88,
+          110, 80,
+          0, 72, 12,
+          29.95, 30.05, 0.025,
+          "", "", "",
+          DKBLUE, RED, YELLOW, WHITE, BLACK, display1);
+  }
+
+  delay(10000);
+}
+
+#if 0
   for (x = 0; x <= 6.3; x += .1)
   {
 
     y = sin(x);
     //                   gx   gy   w    h   xl  xh xi  yl  hi yi
     //  Graph(tft, x, y, 60, 290, 390, 260, 0, 6.5, 1, -1, 1, .25, "Sin Function", "x", "sin(x)",
-        Graph(tft, x, y, 40, 88, 110, 80, 0, 6.5, 1, -1, 1, .25, "Sin Function", "x", "sin(x)", DKBLUE, RED, YELLOW, WHITE, BLACK, display1);
+    Graph(tft, x, y, 40, 88, 110, 80, 0, 6.5, 1, -1, 1, .25, "Sin Function", "x", "sin(x)", DKBLUE, RED, YELLOW, WHITE, BLACK, display1);
   }
 
-  delay(1000000);
-#if 0
+  delay(1000);
+
   tft.fillScreen(BLACK);
   for (x = 0; x <= 6.3; x += .1) {
 
@@ -232,8 +264,8 @@ void graphit()
 
  delay(1000);
   tft.fillScreen(BLACK);
-#endif
 }
+#endif
 
 /*
   function to draw a cartesian coordinate system and plot whatever data you want
@@ -282,7 +314,9 @@ void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, doub
     redraw = false;
     ox = (x - xlo) * (w) / (xhi - xlo) + gx;
     oy = (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
+
     // draw y scale
+    //*****************************************************************************
     for (i = ylo; i <= yhi; i += yinc)
     {
       // compute the transform
@@ -299,16 +333,17 @@ void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, doub
 
       d.setTextSize(1);
       d.setTextColor(tcolor, bcolor);
-      d.setCursor(gx - 40, temp);
-      // precision is default Arduino--this could really use some format control
-      d.println(i);
+      //      d.setCursor(gx - 40, temp);
+      //      // precision is default Arduino--this could really use some format control
+      //      d.println(i);
+      d.drawFloat(i, 2, gx - 40, temp - 2, 1);
     }
+
     // draw x scale
+    //*****************************************************************************
     for (i = xlo; i <= xhi; i += xinc)
     {
-
       // compute the transform
-
       temp = (i - xlo) * (w) / (xhi - xlo) + gx;
       if (i == 0)
       {
@@ -321,29 +356,38 @@ void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, doub
 
       d.setTextSize(1);
       d.setTextColor(tcolor, bcolor);
-      d.setCursor(temp, gy + 10);
-      // precision is default Arduino--this could really use some format control
-      d.println(i);
+      //      d.setCursor(temp, gy + 10);
+      //      // precision is default Arduino--this could really use some format control
+      //      d.println(i);
+      //      d.drawFloat(i, 0, temp, gy + 10, 1);
+      double num = 7 + i / 6;
+      num = num > 12 ? num - 12 : num;
+      d.drawNumber(num, temp - 3, gy + 10, 1);
     }
 
     // now draw the labels
+    //*****************************************************************************
     d.setTextSize(1);
     d.setTextColor(tcolor, bcolor);
-    d.setCursor(gx, gy - h - 30);
-    d.println(title);
+    //    d.setCursor(gx, gy - h - 30);
+    //    d.println(title);
+    d.drawString(title, gx, gy - h - 30, 1);
 
     d.setTextSize(1);
     d.setTextColor(acolor, bcolor);
-    d.setCursor(gx, gy + 20);
-    d.println(xlabel);
+    //    d.setCursor(gx, gy + 20);
+    //    d.println(xlabel);
+    d.drawString(xlabel, gx, gy + 20, 1);
 
     d.setTextSize(1);
     d.setTextColor(acolor, bcolor);
-    d.setCursor(gx - 30, gy - h - 10);
-    d.println(ylabel);
+    //    d.setCursor(gx - 30, gy - h - 10);
+    //    d.println(ylabel);
+    d.drawString(ylabel, gx - 30, gy - h - 10, 1);
   }
 
   // graph drawn now plot the data
+  //*****************************************************************************
   //  the entire plotting code are these few lines...
   //  recall that ox and oy are initialized as static above
   x = (x - xlo) * (w) / (xhi - xlo) + gx;
