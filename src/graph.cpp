@@ -1,59 +1,9 @@
 /*
 This program provides cartesian type graph function
-It requires and Arduino Mega (or UNO) and an Adafruit 3.5" TFT 320x480 + Touchscreen Breakout Board
-https://learn.adafruit.com/adafruit-3-5-color-320x480-tft-touchscreen-breakout/overview
-Adafruit libraries
-https://github.com/adafruit/Adafruit_HX8357_Library/archive/master.zip
-https://github.com/adafruit/Adafruit-GFX-Library/archive/master.zip
-optional touch screen libraries
-https://github.com/adafruit/Touch-Screen-Library/archive/master.zip
 Revisions
 rev     date        author      description
 1       12-24-2015  kasprzak    initial creation
-This pin setting will also operate the SD card
-Pin settings
-  Arduino   device
-  5V        Vin
-  GND       GND
-  A0
-  A1
-  A2         Y+ (for touch screen use)
-  A3         X- (for touch screen use)
-  A4
-  A5
-  1
-  2
-  3
-  4         CCS (42 for mega)
-  5
-  6
-  7         Y- (44 for mega)
-  8         X+ (46 for mega)
-  9         DC (48 on mega * change define)
-  10        CS (53 for mega * change define)
-  11        MOSI (51 for mega)
-  12        MISO  (50 for mega)
-  13        CLK (SCK) (52 for mega)
-  44        Y- (for touch screen only)
-  46        X+ (for touch screen only)
-  48        DC
-  SDA
-  SLC
 */
-
-#if 0
-#include <SPI.h>
-#include <SD.h>
-#include "Adafruit_HX8357.h"
-
-
-// These are 'flexible' lines that can be changed
-
-#define TFT_CS 53
-#define TFT_DC 48
-#define TFT_RST 8 // RST can be set to -1 if you tie it to Arduino's reset
-#define SD_CCS 42
-#endif
 
 #include "LRThermostat_menu.h"
 void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, double h, double xlo, double xhi, double xinc, double ylo, double yhi, double yinc, String title, String xlabel, String ylabel, unsigned int gcolor, unsigned int acolor, unsigned int pcolor, unsigned int tcolor, unsigned int bcolor, boolean &redraw);
@@ -119,47 +69,68 @@ double ox, oy;
 void graphit()
 {
 
-  tft.fillScreen(BLACK);
+    tft.fillScreen(BLACK);
 
-  tft.setRotation(2);
-  a1 = 3.354016E-03;
-  b1 = 2.569850E-04;
-  c1 = 2.620131E-06;
-  d1 = 6.383091E-08;
+    a1 = 3.354016E-03;
+    b1 = 2.569850E-04;
+    c1 = 2.620131E-06;
+    d1 = 6.383091E-08;
 
-  //  double x, y;
+    int32_t x;
+    double y;
+    int16_t data[72] =
+        {30025, 30034, 30041, 30044, 30040, 30019, 29995, 29990,
+         29982, 29971, 29972, 29975, 29983, 29979, 29981, 29981,
+         29978, 30014, 30009, 30010, 30000, 30000, 29995, 29993,
+         29987, 29987, 29991, 29996, 30005, 30014, 30017, 30022,
+         30021, 30031, 30025, 30050, 30071, 30083, 30092, 30100,
+         30055, 30020, 29982, 29971, 29972, 29975, 29983, 29988,
+         29990, 29995, 29999, 30014, 30009, 30010, 30000, 30000,
+         29995, 29993, 29987, 29987, 29991, 29980, 29970, 29960,
+         29940, 29931, 29921, 29900, 29921, 29934, 29950, 29950};
 
-  tft.setRotation(3);
+    uint32_t low = data[0];
+    uint32_t high = data[0];
 
-  int32_t x;
-  double y;
-  int16_t data[72] =
-      {30025, 30034, 30041, 30044, 30040, 30019, 29995, 29990,
-       29982, 29971, 29972, 29975, 29983, 29979, 29981, 29981,
-       29978, 30014, 30009, 30010, 30000, 30000, 29995, 29993,
-       29987, 29987, 29991, 29996, 30005, 30014, 30017, 30022,
-       30021, 30031, 30025, 30034, 30041, 30044, 30040, 30019,
-       29995, 29990, 29982, 29971, 29972, 29975, 29983, 29979,
-       29981, 29981, 29978, 30014, 30009, 30010, 30000, 30000,
-       29995, 29993, 29987, 29987, 29991, 29996, 30005, 30014,
-       30017, 30022, 30021, 30031, 30033, 30031, 30030, 30030};
+    for (int32_t n = 1; n < 72; n++)
+    {
+        if (data[n] < low)
+        {
+            low = data[n];
+        }
+        else if (data[n] > high)
+        {
+            high = data[n];
+        }
+    }
 
-  for (x = 0; x < 72; x++)
-  {
-    y = ((double)(data[x])) / 1000;
-    //                   gx   gy   w    h   xl  xh xi  yl  yh yi
-    //  Graph(tft, x, y, 60, 290, 390, 260, 0, 6.5, 1, -1, 1, .25, "Sin Function", "x", "sin(x)",
-    Graph(tft,
-          (double)x, y,
-          40, 88,
-          110, 80,
-          0, 72, 12,
-          29.95, 30.05, 0.025,
-          "", "", "",
-          DKBLUE, RED, YELLOW, WHITE, BLACK, display1);
-  }
+    double ylo = ((double)(low/100))/10; // round down to nearest 0.100
+    double yhi = ((double)((high+99)/100))/10; // round up to nearest 0.100
 
-  delay(10000);
+    Serial.printf("hi %u, low %u, yhi %f, ylo %f\n", high, low, yhi, ylo);
+
+    for (x = 0; x < 72; x++)
+    {
+        y = ((double)(data[x])) / 1000;
+        //                   gx   gy   w    h   xl  xh xi  yl  yh yi
+        //  Graph(tft, x, y, 60, 290, 390, 260, 0, 6.5, 1, -1, 1, .25, "Sin Function", "x", "sin(x)",
+
+        Graph(tft,
+              (double)x, y,              // data point
+              40, 100,                   // lower left corner of graph
+              110, 90,                   // width, height
+              0, 72, 12,                 // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
+              "12 hr Baro Pres", "", "", // title, x-label, y-label
+              DKBLUE,                    // grid line color
+              DKBLUE,                    // axis lines color
+              YELLOW,                    // plotted data color
+              WHITE,                     // text color
+              BLACK,                     // background color
+              display1);                 // redraw flag
+    }
+
+    delay(100000);
 }
 
 #if 0
@@ -298,107 +269,72 @@ void graphit()
 void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, double h, double xlo, double xhi, double xinc, double ylo, double yhi, double yinc, String title, String xlabel, String ylabel, unsigned int gcolor, unsigned int acolor, unsigned int pcolor, unsigned int tcolor, unsigned int bcolor, boolean &redraw)
 {
 
-  //  double ydiv, xdiv;
-  // initialize old x and old y in order to draw the first point of the graph
-  // but save the transformed value
-  // note my transform funcition is the same as the map function, except the map uses long and we need doubles
-  // static double ox = (x - xlo) * ( w) / (xhi - xlo) + gx;
-  // static double oy = (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
-  double i;
-  double temp;
-  //  int rot, newrot;
+    //  double ydiv, xdiv;
+    // initialize old x and old y in order to draw the first point of the graph
+    // but save the transformed value
+    // note my transform funcition is the same as the map function, except the map uses long and we need doubles
+    // static double ox = (x - xlo) * ( w) / (xhi - xlo) + gx;
+    // static double oy = (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
+    double i;
+    double temp;
 
-  if (redraw == true)
-  {
-
-    redraw = false;
-    ox = (x - xlo) * (w) / (xhi - xlo) + gx;
-    oy = (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
-
-    // draw y scale
-    //*****************************************************************************
-    for (i = ylo; i <= yhi; i += yinc)
+    if (redraw == true)
     {
-      // compute the transform
-      temp = (i - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
+        redraw = false;
+        ox = (x - xlo) * (w) / (xhi - xlo) + gx;
+        oy = (y - ylo) * (-h) / (yhi - ylo) + gy;
 
-      if (i == 0)
-      {
-        d.drawLine(gx, temp, gx + w, temp, acolor);
-      }
-      else
-      {
-        d.drawLine(gx, temp, gx + w, temp, gcolor);
-      }
+        // draw y scale
+        //*****************************************************************************
+        for (i = ylo; i <= (yhi + .0001); i += yinc) // add in a tiny amount to be sure to get last line
+        {
+            // compute the transform
+            temp = (i - ylo) * (-h) / (yhi - ylo) + gy;
 
-      d.setTextSize(1);
-      d.setTextColor(tcolor, bcolor);
-      //      d.setCursor(gx - 40, temp);
-      //      // precision is default Arduino--this could really use some format control
-      //      d.println(i);
-      d.drawFloat(i, 2, gx - 40, temp - 2, 1);
+            d.drawLine(gx, temp, gx + w, temp, (i == 0) ? acolor : gcolor);
+
+            d.setTextColor(tcolor, bcolor);
+            d.drawFloat(i, 2, gx - 40, temp - 2, 1);
+        }
+
+        // draw x scale
+        //*****************************************************************************
+        for (i = xlo; i <= xhi; i += xinc)
+        {
+            // compute the transform
+            temp = (i - xlo) * (w) / (xhi - xlo) + gx;
+
+            d.drawLine(temp, gy, temp, gy - h, (i == 0) ? acolor : gcolor);
+
+            // d.setTextColor(tcolor, bcolor);
+            // d.drawFloat(i, 0, temp, gy + 10, 1);
+            // d.drawNumber(num, temp - 3, gy + 10, 1);
+        }
+
+        // now draw the labels
+        //*****************************************************************************
+        d.setTextColor(tcolor, bcolor);
+        // d.drawString(title, gx, gy - h - 30, 1);
+        d.drawString(title, gx + 7, gy + 10, 1);
+
+        d.setTextColor(acolor, bcolor);
+        d.drawString(xlabel, gx, gy + 20, 1);
+
+        d.setTextColor(acolor, bcolor);
+        d.drawString(ylabel, gx - 30, gy - h - 10, 1);
     }
 
-    // draw x scale
+    // graph drawn, now plot the data
     //*****************************************************************************
-    for (i = xlo; i <= xhi; i += xinc)
-    {
-      // compute the transform
-      temp = (i - xlo) * (w) / (xhi - xlo) + gx;
-      if (i == 0)
-      {
-        d.drawLine(temp, gy, temp, gy - h, acolor);
-      }
-      else
-      {
-        d.drawLine(temp, gy, temp, gy - h, gcolor);
-      }
+    //  the entire plotting code are these few lines...
+    //  recall that ox and oy are initialized as static above
+    x = (x - xlo) * (w) / (xhi - xlo) + gx;
+    y = (y - ylo) * (-h) / (yhi - ylo) + gy;
 
-      d.setTextSize(1);
-      d.setTextColor(tcolor, bcolor);
-      //      d.setCursor(temp, gy + 10);
-      //      // precision is default Arduino--this could really use some format control
-      //      d.println(i);
-      //      d.drawFloat(i, 0, temp, gy + 10, 1);
-      double num = 7 + i / 6;
-      num = num > 12 ? num - 12 : num;
-      d.drawNumber(num, temp - 3, gy + 10, 1);
-    }
-
-    // now draw the labels
-    //*****************************************************************************
-    d.setTextSize(1);
-    d.setTextColor(tcolor, bcolor);
-    //    d.setCursor(gx, gy - h - 30);
-    //    d.println(title);
-    d.drawString(title, gx, gy - h - 30, 1);
-
-    d.setTextSize(1);
-    d.setTextColor(acolor, bcolor);
-    //    d.setCursor(gx, gy + 20);
-    //    d.println(xlabel);
-    d.drawString(xlabel, gx, gy + 20, 1);
-
-    d.setTextSize(1);
-    d.setTextColor(acolor, bcolor);
-    //    d.setCursor(gx - 30, gy - h - 10);
-    //    d.println(ylabel);
-    d.drawString(ylabel, gx - 30, gy - h - 10, 1);
-  }
-
-  // graph drawn now plot the data
-  //*****************************************************************************
-  //  the entire plotting code are these few lines...
-  //  recall that ox and oy are initialized as static above
-  x = (x - xlo) * (w) / (xhi - xlo) + gx;
-  y = (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
-  d.drawLine(ox, oy, x, y, pcolor);
-//  d.drawLine(ox, oy + 1, x, y + 1, pcolor);
-//  d.drawLine(ox, oy - 1, x, y - 1, pcolor);
-  ox = x;
-  oy = y;
+      d.drawLine(ox + 1, oy, x + 1, y, pcolor);
+     d.drawLine(ox, oy, x, y, pcolor);
+    //  d.drawLine(ox, oy + 1, x, y + 1, pcolor);
+    //d.drawWideLine(ox, oy + 1, x, y + 1, 1, pcolor);
+    ox = x;
+    oy = y;
 }
-
-/*
-  End of graphing functioin
-*/

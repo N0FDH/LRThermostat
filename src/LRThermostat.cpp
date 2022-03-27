@@ -72,7 +72,9 @@ float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
 #define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
-int32_t baroDir = 0; // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
+int32_t baroDir = 0;                                            // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
+#define BARO_CNT (12 * 6)                                       // 12 hrs total, every 10 min
+int16_t oldBaro[BARO_CNT] = {0};                                // 12 hrs history, once every 10 min
 
 // The following variables are loaded from the menu
 // START of tcMenu loaded variables
@@ -426,14 +428,11 @@ void accumulateUsage()
     dhSeconds = 0;
 }
 
-#define BARO_CNT 18
 #define BARO_IDX_10MIN 0
 #define BARO_IDX_20MIN 1
-#define BARO_IDX_3HR (BARO_CNT - 1)
+#define BARO_IDX_3HR (17)
 void updateBaroRiseFall()
 {
-    static int16_t oldBaro[BARO_CNT] = {0}; // 3 hrs history, once every 10 min
-
     // Get baro int
     int32_t curBaroInt = BARO_FLOAT_TO_INT(curBaro);
 
