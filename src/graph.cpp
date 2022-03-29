@@ -49,13 +49,10 @@ void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, doub
 #define DKPURPLE 0x4010
 #define DKGREY 0x4A49
 
-// this is the only external variable used by the graph
-// it's a flat to draw the coordinate system only on the first pass
-boolean drawAll = true;
-
 double ox, oy;
 
-void graphBaro()
+// Call with drawAll == true. The the coordinate system will only brawn once.
+void graphBaro(boolean drawAll)
 {
 
   tft.fillScreen(BLACK);

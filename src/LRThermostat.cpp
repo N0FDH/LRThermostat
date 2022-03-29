@@ -153,8 +153,7 @@ void dispBaro();
 void timeSetup();
 void wifiSetup();
 
-// Temp hack into the graphing function
-void graphBaro();
+void graphBaro(boolean drawAll);
 
 // Main Arduino setup function
 void setup()
@@ -1008,7 +1007,7 @@ void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
 
 void CALLBACK_FUNCTION DisplayBaroGraph(int id)
 {
-    graphBaro();
+    graphBaro(TRUE);
 }
 
 void CALLBACK_FUNCTION ClearUsageCntrs(int id)
