@@ -78,13 +78,11 @@ void graphBaro(boolean drawAll)
   double ylo = ((double)(low / 100)) / 10;         // round down to nearest 0.100
   double yhi = ((double)((high + 99) / 100)) / 10; // round up to nearest 0.100
 
-  Serial.printf("hi %u, low %u, yhi %f, ylo %f\n", high, low, yhi, ylo);
+  //  Serial.printf("hi %u, low %u, yhi %f, ylo %f\n", high, low, yhi, ylo);
 
-  for (x = 0; x < BARO_CNT; x++)
+  for (x = BARO_CNT - 1; x >= 0; x--)
   {
     y = ((double)(oldBaro[x])) / 1000;
-    //                   gx   gy   w    h   xl  xh xi  yl  yh yi
-    //  Graph(tft, x, y, 60, 290, 390, 260, 0, 6.5, 1, -1, 1, .25, "Sin Function", "x", "sin(x)",
 
     Graph(tft,
           (double)x, y,              // data point
