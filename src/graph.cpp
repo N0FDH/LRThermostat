@@ -3,6 +3,8 @@ This program provides cartesian type graph function
 Revisions
 rev     date        author      description
 1       12-24-2015  kasprzak    initial creation
+
+     https://github.com/KrisKasprzak/Graphing
 */
 
 #include <Arduino.h>
@@ -80,9 +82,9 @@ void graphBaro(boolean drawAll)
 
   //  Serial.printf("hi %u, low %u, yhi %f, ylo %f\n", high, low, yhi, ylo);
 
-  for (x = BARO_CNT - 1; x >= 0; x--)
+  for (x = 0; x < BARO_CNT; x++)
   {
-    y = ((double)(oldBaro[x])) / 1000;
+    y = ((double)(oldBaro[(BARO_CNT - 1) - x])) / 1000;
 
     Graph(tft,
           (double)x, y,              // data point
