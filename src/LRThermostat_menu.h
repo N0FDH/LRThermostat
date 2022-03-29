@@ -34,9 +34,9 @@ extern ActionMenuItem menuSafePowerdown;
 extern ActionMenuItem menuExitVar;
 extern ActionMenuItem menuClearUsageCntrs;
 extern ActionMenuItem menuDisplayUsageCntrs;
-extern BackMenuItem menuBackUsageCounters;
-extern SubMenuItem menuUsageCounters;
-extern EditableLargeNumberMenuItem menuBaroRapidLoLimit;
+extern ActionMenuItem menuDisplayBaroGraph;
+extern BackMenuItem menuBackUsageAndGraphs;
+extern SubMenuItem menuUsageAndGraphs;
 extern EditableLargeNumberMenuItem menuBaroSteadyUpLimit;
 extern AnalogMenuItem menuMinRunTime;
 extern BackMenuItem menuBackMiscellaneous;
@@ -63,10 +63,10 @@ void setupMenu();
 // Callback functions must always include CALLBACK_FUNCTION after the return type
 #define CALLBACK_FUNCTION
 
-void CALLBACK_FUNCTION BaroRapidLoLimitCallback(int id);
 void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id);
 void CALLBACK_FUNCTION ClearUsageCntrs(int id);
 void CALLBACK_FUNCTION CoolingHysteresisCallback(int id);
+void CALLBACK_FUNCTION DisplayBaroGraph(int id);
 void CALLBACK_FUNCTION DisplayUsageCntrs(int id);
 void CALLBACK_FUNCTION ExitCallback(int id);
 void CALLBACK_FUNCTION FanCallback(int id);

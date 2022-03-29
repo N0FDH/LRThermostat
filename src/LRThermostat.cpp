@@ -72,9 +72,9 @@ float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
 #define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
-int32_t baroDir = 0;                                            // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
-#define BARO_CNT (12 * 6)                                       // 12 hrs total, every 10 min
-int16_t oldBaro[BARO_CNT] = {0};                                // 12 hrs history, once every 10 min
+
+int32_t baroDir = 0;             // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
+int16_t oldBaro[BARO_CNT] = {0}; // 12 hrs history, once every 10 min
 
 // The following variables are loaded from the menu
 // START of tcMenu loaded variables
@@ -154,7 +154,7 @@ void timeSetup();
 void wifiSetup();
 
 // Temp hack into the graphing function
-void graphit();
+void graphBaro();
 
 // Main Arduino setup function
 void setup()
@@ -225,9 +225,6 @@ void setup()
 
     // Get time
     timeSetup();
-
-    // Temp hack into the graphing function
-    //    graphit();
 }
 
 // Main Arduino control loop
@@ -1007,6 +1004,11 @@ void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
     tft.printf("Heat on %s\n", formatUsageCounter(loc.heatSeconds, buf));
     tft.printf("A/C  on %s\n", formatUsageCounter(loc.coolSeconds, buf));
     tft.printf("D/H  on %s\n", formatUsageCounter(loc.dhSeconds, buf));
+}
+
+void CALLBACK_FUNCTION DisplayBaroGraph(int id)
+{
+    graphBaro();
 }
 
 void CALLBACK_FUNCTION ClearUsageCntrs(int id)

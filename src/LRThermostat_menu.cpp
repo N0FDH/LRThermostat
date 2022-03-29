@@ -24,18 +24,18 @@ const PROGMEM AnyMenuInfo minfoSafePowerdown = { "Safe Powerdown", 78, 0xffff, 0
 ActionMenuItem menuSafePowerdown(&minfoSafePowerdown, NULL);
 const PROGMEM AnyMenuInfo minfoExitVar = { "Exit", 95, 0xffff, 0, ExitCallback };
 ActionMenuItem menuExitVar(&minfoExitVar, &menuSafePowerdown);
-const PROGMEM AnyMenuInfo minfoClearUsageCntrs = { "Clear", 80, 0xffff, 0, ClearUsageCntrs };
+const PROGMEM AnyMenuInfo minfoClearUsageCntrs = { "Clear Usage", 80, 0xffff, 0, ClearUsageCntrs };
 ActionMenuItem menuClearUsageCntrs(&minfoClearUsageCntrs, NULL);
-const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Display", 81, 0xffff, 0, DisplayUsageCntrs };
+const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Display Usage", 81, 0xffff, 0, DisplayUsageCntrs };
 ActionMenuItem menuDisplayUsageCntrs(&minfoDisplayUsageCntrs, &menuClearUsageCntrs);
-RENDERING_CALLBACK_NAME_INVOKE(fnUsageCountersRtCall, backSubItemRenderFn, "Usage Counters", -1, NO_CALLBACK)
-const PROGMEM SubMenuInfo minfoUsageCounters = { "Usage Counters", 79, 0xffff, 0, NO_CALLBACK };
-BackMenuItem menuBackUsageCounters(fnUsageCountersRtCall, &menuDisplayUsageCntrs);
-SubMenuItem menuUsageCounters(&minfoUsageCounters, &menuBackUsageCounters, &menuExitVar);
-RENDERING_CALLBACK_NAME_INVOKE(fnBaroRapidLoLimitRtCall, largeNumItemRenderFn, "Pr Rapid", 72, BaroRapidLoLimitCallback)
-EditableLargeNumberMenuItem menuBaroRapidLoLimit(fnBaroRapidLoLimitRtCall, 93, 5, 4, false, NULL);
+const PROGMEM AnyMenuInfo minfoDisplayBaroGraph = { "Display Baro Graph", 96, 0xffff, 0, DisplayBaroGraph };
+ActionMenuItem menuDisplayBaroGraph(&minfoDisplayBaroGraph, &menuDisplayUsageCntrs);
+RENDERING_CALLBACK_NAME_INVOKE(fnUsageAndGraphsRtCall, backSubItemRenderFn, "Usage and Graphs", -1, NO_CALLBACK)
+const PROGMEM SubMenuInfo minfoUsageAndGraphs = { "Usage and Graphs", 79, 0xffff, 0, NO_CALLBACK };
+BackMenuItem menuBackUsageAndGraphs(fnUsageAndGraphsRtCall, &menuDisplayBaroGraph);
+SubMenuItem menuUsageAndGraphs(&minfoUsageAndGraphs, &menuBackUsageAndGraphs, &menuExitVar);
 RENDERING_CALLBACK_NAME_INVOKE(fnBaroSteadyUpLimitRtCall, largeNumItemRenderFn, "Pr Steady", 64, BaroSteadyUpLimitCallback)
-EditableLargeNumberMenuItem menuBaroSteadyUpLimit(fnBaroSteadyUpLimitRtCall, 92, 5, 4, false, &menuBaroRapidLoLimit);
+EditableLargeNumberMenuItem menuBaroSteadyUpLimit(fnBaroSteadyUpLimitRtCall, 92, 5, 4, false, NULL);
 const PROGMEM AnalogMenuInfo minfoMinRunTime = { "DH Min RT", 91, 10, 180, MinRunTimeCallback, 0, 1, " min" };
 AnalogMenuItem menuMinRunTime(&minfoMinRunTime, 0, &menuBaroSteadyUpLimit);
 RENDERING_CALLBACK_NAME_INVOKE(fnMiscellaneousRtCall, backSubItemRenderFn, "Miscellaneous", -1, NO_CALLBACK)
@@ -65,7 +65,7 @@ SubMenuItem menuHysteresis(&minfoHysteresis, &menuBackHysteresis, &menuSensorCal
 RENDERING_CALLBACK_NAME_INVOKE(fnThermostatSettingsRtCall, backSubItemRenderFn, "Settings", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoThermostatSettings = { "Settings", 8, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackThermostatSettings(fnThermostatSettingsRtCall, &menuHysteresis);
-SubMenuItem menuThermostatSettings(&minfoThermostatSettings, &menuBackThermostatSettings, &menuUsageCounters);
+SubMenuItem menuThermostatSettings(&minfoThermostatSettings, &menuBackThermostatSettings, &menuUsageAndGraphs);
 const char enumStrFanEnum_0[] PROGMEM = "On";
 const char enumStrFanEnum_1[] PROGMEM = "Auto";
 const char* const enumStrFanEnum[] PROGMEM  = { enumStrFanEnum_0, enumStrFanEnum_1 };

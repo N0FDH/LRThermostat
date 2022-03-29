@@ -235,29 +235,12 @@
       }
     },
     {
-      "parentId": 90,
-      "type": "largeNumItem",
-      "item": {
-        "digitsAllowed": 5,
-        "decimalPlaces": 4,
-        "negativeAllowed": false,
-        "name": "Pr Rapid",
-        "variableName": "BaroRapidLoLimit",
-        "id": 93,
-        "eepromAddress": 72,
-        "functionName": "BaroRapidLoLimitCallback",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
       "parentId": 0,
       "type": "subMenu",
       "item": {
         "secured": false,
-        "name": "Usage Counters",
-        "variableName": "UsageCounters",
+        "name": "Usage and Graphs",
+        "variableName": "UsageAndGraphs",
         "id": 79,
         "eepromAddress": -1,
         "readOnly": false,
@@ -269,7 +252,21 @@
       "parentId": 79,
       "type": "actionMenu",
       "item": {
-        "name": "Display",
+        "name": "Display Baro Graph",
+        "variableName": "DisplayBaroGraph",
+        "id": 96,
+        "eepromAddress": -1,
+        "functionName": "DisplayBaroGraph",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
+        "name": "Display Usage",
         "variableName": "DisplayUsageCntrs",
         "id": 81,
         "eepromAddress": -1,
@@ -283,7 +280,7 @@
       "parentId": 79,
       "type": "actionMenu",
       "item": {
-        "name": "Clear",
+        "name": "Clear Usage",
         "variableName": "ClearUsageCntrs",
         "id": 80,
         "eepromAddress": -1,
