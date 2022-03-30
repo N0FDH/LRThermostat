@@ -5,6 +5,90 @@
   "items": [
     {
       "parentId": 0,
+      "type": "subMenu",
+      "item": {
+        "secured": false,
+        "name": "Usage and Graphs",
+        "variableName": "UsageAndGraphs",
+        "id": 79,
+        "eepromAddress": -1,
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
+        "name": "Display Baro Graph",
+        "variableName": "DisplayBaroGraph",
+        "id": 96,
+        "eepromAddress": -1,
+        "functionName": "DisplayBaroGraph",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
+        "name": "Display Hmd Graph",
+        "variableName": "DisplayHmdGraph",
+        "id": 97,
+        "eepromAddress": -1,
+        "functionName": "DisplayHmdGraph",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
+        "name": "Display Usage",
+        "variableName": "DisplayUsageCntrs",
+        "id": 81,
+        "eepromAddress": -1,
+        "functionName": "DisplayUsageCntrs",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
+        "name": "Clear Usage",
+        "variableName": "ClearUsageCntrs",
+        "id": 80,
+        "eepromAddress": -1,
+        "functionName": "ClearUsageCntrs",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 0,
+      "type": "actionMenu",
+      "item": {
+        "name": "Exit",
+        "variableName": "ExitVar",
+        "id": 95,
+        "eepromAddress": -1,
+        "functionName": "ExitCallback",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 0,
       "type": "enumItem",
       "item": {
         "enumEntries": [
@@ -236,83 +320,13 @@
     },
     {
       "parentId": 0,
-      "type": "subMenu",
-      "item": {
-        "secured": false,
-        "name": "Usage and Graphs",
-        "variableName": "UsageAndGraphs",
-        "id": 79,
-        "eepromAddress": -1,
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 79,
       "type": "actionMenu",
       "item": {
-        "name": "Display Baro Graph",
-        "variableName": "DisplayBaroGraph",
-        "id": 96,
-        "eepromAddress": -1,
-        "functionName": "DisplayBaroGraph",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 79,
-      "type": "actionMenu",
-      "item": {
-        "name": "Display Usage",
-        "variableName": "DisplayUsageCntrs",
-        "id": 81,
-        "eepromAddress": -1,
-        "functionName": "DisplayUsageCntrs",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 79,
-      "type": "actionMenu",
-      "item": {
-        "name": "Clear Usage",
-        "variableName": "ClearUsageCntrs",
-        "id": 80,
-        "eepromAddress": -1,
-        "functionName": "ClearUsageCntrs",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 0,
-      "type": "actionMenu",
-      "item": {
-        "name": "Exit",
-        "variableName": "ExitVar",
-        "id": 95,
-        "eepromAddress": -1,
-        "functionName": "ExitCallback",
-        "readOnly": false,
-        "localOnly": false,
-        "visible": true
-      }
-    },
-    {
-      "parentId": 0,
-      "type": "actionMenu",
-      "item": {
-        "name": "Safe Powerdown",
-        "variableName": "SafePowerdown",
+        "name": "Safe Shutdown",
+        "variableName": "SafeShutdown",
         "id": 78,
         "eepromAddress": -1,
-        "functionName": "SafePowerdown",
+        "functionName": "SafeShutdown",
         "readOnly": false,
         "localOnly": false,
         "visible": true

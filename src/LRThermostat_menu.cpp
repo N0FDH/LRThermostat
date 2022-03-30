@@ -20,20 +20,8 @@ TfteSpiDrawable tftDrawable(&tft, 2);
 GraphicsDeviceRenderer renderer(30, applicationInfo.name, &tftDrawable);
 
 // Global Menu Item declarations
-const PROGMEM AnyMenuInfo minfoSafePowerdown = { "Safe Powerdown", 78, 0xffff, 0, SafePowerdown };
-ActionMenuItem menuSafePowerdown(&minfoSafePowerdown, NULL);
-const PROGMEM AnyMenuInfo minfoExitVar = { "Exit", 95, 0xffff, 0, ExitCallback };
-ActionMenuItem menuExitVar(&minfoExitVar, &menuSafePowerdown);
-const PROGMEM AnyMenuInfo minfoClearUsageCntrs = { "Clear Usage", 80, 0xffff, 0, ClearUsageCntrs };
-ActionMenuItem menuClearUsageCntrs(&minfoClearUsageCntrs, NULL);
-const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Display Usage", 81, 0xffff, 0, DisplayUsageCntrs };
-ActionMenuItem menuDisplayUsageCntrs(&minfoDisplayUsageCntrs, &menuClearUsageCntrs);
-const PROGMEM AnyMenuInfo minfoDisplayBaroGraph = { "Display Baro Graph", 96, 0xffff, 0, DisplayBaroGraph };
-ActionMenuItem menuDisplayBaroGraph(&minfoDisplayBaroGraph, &menuDisplayUsageCntrs);
-RENDERING_CALLBACK_NAME_INVOKE(fnUsageAndGraphsRtCall, backSubItemRenderFn, "Usage and Graphs", -1, NO_CALLBACK)
-const PROGMEM SubMenuInfo minfoUsageAndGraphs = { "Usage and Graphs", 79, 0xffff, 0, NO_CALLBACK };
-BackMenuItem menuBackUsageAndGraphs(fnUsageAndGraphsRtCall, &menuDisplayBaroGraph);
-SubMenuItem menuUsageAndGraphs(&minfoUsageAndGraphs, &menuBackUsageAndGraphs, &menuExitVar);
+const PROGMEM AnyMenuInfo minfoSafeShutdown = { "Safe Shutdown", 78, 0xffff, 0, SafeShutdown };
+ActionMenuItem menuSafeShutdown(&minfoSafeShutdown, NULL);
 RENDERING_CALLBACK_NAME_INVOKE(fnBaroSteadyUpLimitRtCall, largeNumItemRenderFn, "Pr Steady", 64, BaroSteadyUpLimitCallback)
 EditableLargeNumberMenuItem menuBaroSteadyUpLimit(fnBaroSteadyUpLimitRtCall, 92, 5, 4, false, NULL);
 const PROGMEM AnalogMenuInfo minfoMinRunTime = { "DH Min RT", 91, 10, 180, MinRunTimeCallback, 0, 1, " min" };
@@ -65,7 +53,7 @@ SubMenuItem menuHysteresis(&minfoHysteresis, &menuBackHysteresis, &menuSensorCal
 RENDERING_CALLBACK_NAME_INVOKE(fnThermostatSettingsRtCall, backSubItemRenderFn, "Settings", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoThermostatSettings = { "Settings", 8, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackThermostatSettings(fnThermostatSettingsRtCall, &menuHysteresis);
-SubMenuItem menuThermostatSettings(&minfoThermostatSettings, &menuBackThermostatSettings, &menuUsageAndGraphs);
+SubMenuItem menuThermostatSettings(&minfoThermostatSettings, &menuBackThermostatSettings, &menuSafeShutdown);
 const char enumStrFanEnum_0[] PROGMEM = "On";
 const char enumStrFanEnum_1[] PROGMEM = "Auto";
 const char* const enumStrFanEnum[] PROGMEM  = { enumStrFanEnum_0, enumStrFanEnum_1 };
@@ -78,6 +66,20 @@ const char enumStrModeEnum_3[] PROGMEM = "Dehumidify";
 const char* const enumStrModeEnum[] PROGMEM  = { enumStrModeEnum_0, enumStrModeEnum_1, enumStrModeEnum_2, enumStrModeEnum_3 };
 const PROGMEM EnumMenuInfo minfoModeEnum = { "Mode", 39, 6, 3, ModeCallback, enumStrModeEnum };
 EnumMenuItem menuModeEnum(&minfoModeEnum, 0, &menuFanEnum);
+const PROGMEM AnyMenuInfo minfoExitVar = { "Exit", 95, 0xffff, 0, ExitCallback };
+ActionMenuItem menuExitVar(&minfoExitVar, &menuModeEnum);
+const PROGMEM AnyMenuInfo minfoClearUsageCntrs = { "Clear Usage", 80, 0xffff, 0, ClearUsageCntrs };
+ActionMenuItem menuClearUsageCntrs(&minfoClearUsageCntrs, NULL);
+const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Display Usage", 81, 0xffff, 0, DisplayUsageCntrs };
+ActionMenuItem menuDisplayUsageCntrs(&minfoDisplayUsageCntrs, &menuClearUsageCntrs);
+const PROGMEM AnyMenuInfo minfoDisplayHmdGraph = { "Display Hmd Graph", 97, 0xffff, 0, DisplayHmdGraph };
+ActionMenuItem menuDisplayHmdGraph(&minfoDisplayHmdGraph, &menuDisplayUsageCntrs);
+const PROGMEM AnyMenuInfo minfoDisplayBaroGraph = { "Display Baro Graph", 96, 0xffff, 0, DisplayBaroGraph };
+ActionMenuItem menuDisplayBaroGraph(&minfoDisplayBaroGraph, &menuDisplayHmdGraph);
+RENDERING_CALLBACK_NAME_INVOKE(fnUsageAndGraphsRtCall, backSubItemRenderFn, "Usage and Graphs", -1, NO_CALLBACK)
+const PROGMEM SubMenuInfo minfoUsageAndGraphs = { "Usage and Graphs", 79, 0xffff, 0, NO_CALLBACK };
+BackMenuItem menuBackUsageAndGraphs(fnUsageAndGraphsRtCall, &menuDisplayBaroGraph);
+SubMenuItem menuUsageAndGraphs(&minfoUsageAndGraphs, &menuBackUsageAndGraphs, &menuExitVar);
 
 void setupMenu() {
     // First we set up eeprom and authentication (if needed).
@@ -87,7 +89,7 @@ void setupMenu() {
     tft.setRotation(3);
     renderer.setUpdatesPerSecond(10);
     switches.initialise(internalDigitalIo(), true);
-    menuMgr.initForUpDownOk(&renderer, &menuModeEnum, 15, 13, 4);
+    menuMgr.initForUpDownOk(&renderer, &menuUsageAndGraphs, 15, 13, 4);
     renderer.setTitleMode(BaseGraphicalRenderer::TITLE_ALWAYS);
     renderer.setUseSliderForAnalog(false);
     installCoolBlueTraditionalTheme(renderer, MenuFontDef(nullptr, 2), MenuFontDef(nullptr, 1), true);

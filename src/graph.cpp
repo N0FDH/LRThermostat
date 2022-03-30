@@ -1,17 +1,22 @@
-/*
-This program provides cartesian type graph function
-Revisions
-rev     date        author      description
-1       12-24-2015  kasprzak    initial creation
-
-     https://github.com/KrisKasprzak/Graphing
-*/
+//
+//   This program provides cartesian type graph function.
+//   Originally written by Kris Kasprzak:
+//   https://github.com/KrisKasprzak/Graphing
+//
 
 #include <Arduino.h>
 #include "LRThermostat.h"
 #include "LRThermostat_menu.h"
 
-void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, double h, double xlo, double xhi, double xinc, double ylo, double yhi, double yinc, String title, String xlabel, String ylabel, unsigned int gcolor, unsigned int acolor, unsigned int pcolor, unsigned int tcolor, unsigned int bcolor, boolean &redraw);
+void Graph(TFT_eSPI &d,
+           float_t x, float_t y,
+           int32_t gx, int32_t gy, int32_t w, int32_t h,
+           float_t xlo, float_t xhi, float_t xinc,
+           float_t ylo, float_t yhi, float_t yinc,
+           String title, String xlabel, String ylabel,
+           uint32_t gcolor, uint32_t acolor, uint32_t pcolor,
+           uint32_t tcolor, uint32_t bcolor,
+           boolean &redraw, uint32_t digits);
 
 #define LTBLUE 0xB6DF
 #define LTTEAL 0xBF5F
@@ -51,153 +56,205 @@ void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, doub
 #define DKPURPLE 0x4010
 #define DKGREY 0x4A49
 
-double ox, oy;
-
 // Call with drawAll == true. The the coordinate system will only brawn once.
 void graphBaro(boolean drawAll)
 {
+    tft.fillScreen(BLACK);
 
-  tft.fillScreen(BLACK);
+    uint32_t low = oldBaro[0];
+    uint32_t high = oldBaro[0];
 
-  int32_t x;
-  double y;
-
-  uint32_t low = oldBaro[0];
-  uint32_t high = oldBaro[0];
-
-  for (int32_t n = 1; n < 72; n++)
-  {
-    if (oldBaro[n] < low)
+    for (int32_t n = 1; n < 72; n++)
     {
-      low = oldBaro[n];
+        if (oldBaro[n] < low)
+        {
+            low = oldBaro[n];
+        }
+        else if (oldBaro[n] > high)
+        {
+            high = oldBaro[n];
+        }
     }
-    else if (oldBaro[n] > high)
+
+    // Note: these round up/downs are using integer math then floating
+    float_t ylo = ((float_t)(low / 100)) / 10;         // round down to nearest 0.100
+    float_t yhi = ((float_t)((high + 99) / 100)) / 10; // round up to nearest 0.100
+
+    int32_t x;
+    float_t y;
+
+    for (x = 0; x < HIST_CNT; x++)
     {
-      high = oldBaro[n];
+        y = ((float_t)(oldBaro[(HIST_CNT - 1) - x])) / 1000;
+
+        Graph(tft,
+              (float_t)x, y,             // data point
+              40, 100,                   // lower left corner of graph
+              110, 90,                   // width, height
+              0, 72, 12,                 // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
+              "12 hr Baro Pres", "", "", // title, x-label, y-label
+              DKBLUE,                    // grid line color
+              DKBLUE,                    // axis lines color
+              YELLOW,                    // plotted data color
+              WHITE,                     // text color
+              BLACK,                     // background color
+              drawAll,                   // redraw flag
+              2);                        // digits
     }
-  }
-
-  double ylo = ((double)(low / 100)) / 10;         // round down to nearest 0.100
-  double yhi = ((double)((high + 99) / 100)) / 10; // round up to nearest 0.100
-
-  //  Serial.printf("hi %u, low %u, yhi %f, ylo %f\n", high, low, yhi, ylo);
-
-  for (x = 0; x < BARO_CNT; x++)
-  {
-    y = ((double)(oldBaro[(BARO_CNT - 1) - x])) / 1000;
-
-    Graph(tft,
-          (double)x, y,              // data point
-          40, 100,                   // lower left corner of graph
-          110, 90,                   // width, height
-          0, 72, 12,                 // xlow, xhi, xinc
-          ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
-          "12 hr Baro Pres", "", "", // title, x-label, y-label
-          DKBLUE,                    // grid line color
-          DKBLUE,                    // axis lines color
-          YELLOW,                    // plotted data color
-          WHITE,                     // text color
-          BLACK,                     // background color
-          drawAll);                  // redraw flag
-  }
 }
 
-/*
-  function to draw a cartesian coordinate system and plot whatever data you want
-  just pass x and y and the graph will be drawn
-  huge arguement list
-  &d name of your display object
-  x = x data point
-  y = y datapont
-  gx = x graph location (lower left)
-  gy = y graph location (lower left)
-  w = width of graph
-  h = height of graph
-  xlo = lower bound of x axis
-  xhi = upper bound of x asis
-  xinc = division of x axis (distance not count)
-  ylo = lower bound of y axis
-  yhi = upper bound of y asis
-  yinc = division of y axis (distance not count)
-  title = title of graph
-  xlabel = x asis label
-  ylabel = y asis label
-  gcolor = graph line colors
-  acolor = axi ine colors
-  pcolor = color of your plotted data
-  tcolor = text color
-  bcolor = background color
-  &redraw = flag to redraw graph on fist call only
-*/
-
-void Graph(TFT_eSPI &d, double x, double y, double gx, double gy, double w, double h, double xlo, double xhi, double xinc, double ylo, double yhi, double yinc, String title, String xlabel, String ylabel, unsigned int gcolor, unsigned int acolor, unsigned int pcolor, unsigned int tcolor, unsigned int bcolor, boolean &redraw)
+// Call with drawAll == true. The the coordinate system will only brawn once.
+void graphHumidity(boolean drawAll)
 {
-  //  double ydiv, xdiv;
-  // initialize old x and old y in order to draw the first point of the graph
-  // but save the transformed value
-  // note my transform funcition is the same as the map function, except the map uses long and we need doubles
-  // static double ox = (x - xlo) * ( w) / (xhi - xlo) + gx;
-  // static double oy = (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
-  double i;
-  double temp;
+    tft.fillScreen(BLACK);
 
-  if (redraw == true)
-  {
-    redraw = false;
-    ox = (x - xlo) * (w) / (xhi - xlo) + gx;
-    oy = (y - ylo) * (-h) / (yhi - ylo) + gy;
+    uint32_t low = oldHumd[0];
+    uint32_t high = oldHumd[0];
 
-    // draw y scale
-    //*****************************************************************************
-    for (i = ylo; i <= (yhi + .0001); i += yinc) // add in a tiny amount to be sure to get last line
+    for (int32_t n = 1; n < 72; n++)
     {
-      // compute the transform
-      temp = (i - ylo) * (-h) / (yhi - ylo) + gy;
-
-      d.drawLine(gx, temp, gx + w, temp, (i == 0) ? acolor : gcolor);
-
-      d.setTextColor(tcolor, bcolor);
-      d.drawFloat(i, 2, gx - 40, temp - 2, 1);
+        if (oldHumd[n] < low)
+        {
+            low = oldHumd[n];
+        }
+        else if (oldHumd[n] > high)
+        {
+            high = oldHumd[n];
+        }
     }
 
-    // draw x scale
-    //*****************************************************************************
-    for (i = xlo; i <= xhi; i += xinc)
+    // Note: these round up/downs are using integer math exclusively
+    float_t ylo = low / 5 * 5;        // round down to nearest 5
+    float_t yhi = (high + 4) / 5 * 5; // round up to nearest 5
+
+    int32_t x;
+    float_t y;
+
+    for (x = 0; x < HIST_CNT; x++)
     {
-      // compute the transform
-      temp = (i - xlo) * (w) / (xhi - xlo) + gx;
+        y = ((float_t)(oldHumd[(HIST_CNT - 1) - x]));
 
-      d.drawLine(temp, gy, temp, gy - h, (i == 0) ? acolor : gcolor);
+        //        Serial.printf("x: %u, y: %f\n", x, y);
 
-      // d.setTextColor(tcolor, bcolor);
-      // d.drawFloat(i, 0, temp, gy + 10, 1);
-      // d.drawNumber(num, temp - 3, gy + 10, 1);
+        Graph(tft,
+              (float_t)x, y,             // data point
+              40, 100,                   // lower left corner of graph
+              110, 90,                   // width, height
+              0, 72, 12,                 // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
+              " 12 hr Humidity", "", "", // title, x-label, y-label
+              DKBLUE,                    // grid line color
+              DKBLUE,                    // axis lines color
+              YELLOW,                    // plotted data color
+              WHITE,                     // text color
+              BLACK,                     // background color
+              drawAll,                   // redraw flag
+              0);                        // digits
+    }
+}
+
+//   Function to draw a cartesian coordinate system and plot whatever data you want
+//   just pass x and y and the graph will be drawn
+//   huge arguement list
+//   &d name of your display object
+//   x = x data point
+//   y = y datapont
+//   gx = x graph location (lower left)
+//   gy = y graph location (lower left)
+//   w = width of graph
+//   h = height of graph
+//   xlo = lower bound of x axis
+//   xhi = upper bound of x asis
+//   xinc = division of x axis (distance not count)
+//   ylo = lower bound of y axis
+//   yhi = upper bound of y asis
+//   yinc = division of y axis (distance not count)
+//   title = title of graph
+//   xlabel = x axis label
+//   ylabel = y axis label
+//   gcolor = graph line colors
+//   acolor = axis line colors
+//   pcolor = color of your plotted data
+//   tcolor = text color
+//   bcolor = background color
+//   &redraw = flag to redraw graph on first call only
+//   digits = number of significant digits after decimal point on y-axis labels
+void Graph(TFT_eSPI &d,
+           float_t x, float_t y,
+           int32_t gx, int32_t gy, int32_t w, int32_t h,
+           float_t xlo, float_t xhi, float_t xinc,
+           float_t ylo, float_t yhi, float_t yinc,
+           String title, String xlabel, String ylabel,
+           uint32_t gcolor, uint32_t acolor, uint32_t pcolor,
+           uint32_t tcolor, uint32_t bcolor,
+           boolean &redraw, uint32_t digits)
+{
+    static float_t ox, oy;
+
+    float_t i;
+    float_t temp;
+
+    if (redraw == true)
+    {
+        redraw = false;
+        ox = (x - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
+        oy = (y - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
+
+        // Draw y scale
+        //*****************************************************************************
+        // add a tiny amount to yhi to be sure to get last line
+        for (i = ylo; i <= (yhi + .0001); i += yinc)
+        {
+            // compute the transform
+            temp = (i - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
+
+            d.drawLine(gx, temp, gx + w, temp, (i == 0) ? acolor : gcolor);
+
+            d.setTextColor(tcolor, bcolor);
+
+            if (digits)
+            {
+                d.drawFloat(i, digits, gx - 40, temp - 2, 1);
+            }
+            else
+            {
+                d.drawNumber(i, gx - 18, temp - 2, 1);
+            }
+        }
+
+        // Draw x scale
+        //***************************************************************************
+        for (i = xlo; i <= xhi; i += xinc)
+        {
+            // compute the transform
+            temp = (i - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
+
+            d.drawLine(temp, gy, temp, gy - h, (i == 0) ? acolor : gcolor);
+        }
+
+        // Now draw the labels
+        //*****************************************************************************
+        d.setTextColor(tcolor, bcolor);
+        d.drawString(title, gx + 7, gy + 10, 1);
+
+        d.setTextColor(acolor, bcolor);
+        d.drawString(xlabel, gx, gy + 20, 1);
+
+        d.setTextColor(acolor, bcolor);
+        d.drawString(ylabel, gx - 30, gy - h - 10, 1);
     }
 
-    // now draw the labels
+    // Graph drawn, now plot the data
     //*****************************************************************************
-    d.setTextColor(tcolor, bcolor);
-    // d.drawString(title, gx, gy - h - 30, 1);
-    d.drawString(title, gx + 7, gy + 10, 1);
+    // The entire plotting code are these few lines...
+    // Tecall that ox and oy are initialized as static above
+    x = (x - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
+    y = (y - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
 
-    d.setTextColor(acolor, bcolor);
-    d.drawString(xlabel, gx, gy + 20, 1);
+    d.drawLine(ox + 1, oy, x + 1, y, pcolor);
+    d.drawLine(ox, oy, x, y, pcolor);
 
-    d.setTextColor(acolor, bcolor);
-    d.drawString(ylabel, gx - 30, gy - h - 10, 1);
-  }
-
-  // graph drawn, now plot the data
-  //*****************************************************************************
-  //  the entire plotting code are these few lines...
-  //  recall that ox and oy are initialized as static above
-  x = (x - xlo) * (w) / (xhi - xlo) + gx;
-  y = (y - ylo) * (-h) / (yhi - ylo) + gy;
-
-  d.drawLine(ox + 1, oy, x + 1, y, pcolor);
-  d.drawLine(ox, oy, x, y, pcolor);
-  //  d.drawLine(ox, oy + 1, x, y + 1, pcolor);
-  // d.drawWideLine(ox, oy + 1, x, y + 1, 1, pcolor);
-  ox = x;
-  oy = y;
+    ox = x;
+    oy = y;
 }

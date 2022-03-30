@@ -68,5 +68,6 @@ typedef struct
 // Wifi and web server stuff
 extern void serverSetup();
 
-#define BARO_CNT (12 * 6)         // 12 hrs total, every 10 min
-extern int16_t oldBaro[BARO_CNT]; // 12 hrs history, once every 10 min
+#define HIST_CNT (12 * 6)         // 12 hrs total, every 10 min
+extern int16_t oldBaro[HIST_CNT]; // 12 hrs history, once every 10 min
+extern int16_t oldHumd[HIST_CNT]; // 12 hrs history, once every 10 min

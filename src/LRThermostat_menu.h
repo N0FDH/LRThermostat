@@ -30,13 +30,7 @@ extern GraphicsDeviceRenderer renderer;
 
 
 // Global Menu Item exports
-extern ActionMenuItem menuSafePowerdown;
-extern ActionMenuItem menuExitVar;
-extern ActionMenuItem menuClearUsageCntrs;
-extern ActionMenuItem menuDisplayUsageCntrs;
-extern ActionMenuItem menuDisplayBaroGraph;
-extern BackMenuItem menuBackUsageAndGraphs;
-extern SubMenuItem menuUsageAndGraphs;
+extern ActionMenuItem menuSafeShutdown;
 extern EditableLargeNumberMenuItem menuBaroSteadyUpLimit;
 extern AnalogMenuItem menuMinRunTime;
 extern BackMenuItem menuBackMiscellaneous;
@@ -55,9 +49,16 @@ extern BackMenuItem menuBackThermostatSettings;
 extern SubMenuItem menuThermostatSettings;
 extern EnumMenuItem menuFanEnum;
 extern EnumMenuItem menuModeEnum;
+extern ActionMenuItem menuExitVar;
+extern ActionMenuItem menuClearUsageCntrs;
+extern ActionMenuItem menuDisplayUsageCntrs;
+extern ActionMenuItem menuDisplayHmdGraph;
+extern ActionMenuItem menuDisplayBaroGraph;
+extern BackMenuItem menuBackUsageAndGraphs;
+extern SubMenuItem menuUsageAndGraphs;
 
 // Provide a wrapper to get hold of the root menu item and export setupMenu
-inline MenuItem& rootMenuItem() { return menuModeEnum; }
+inline MenuItem& rootMenuItem() { return menuUsageAndGraphs; }
 void setupMenu();
 
 // Callback functions must always include CALLBACK_FUNCTION after the return type
@@ -67,6 +68,7 @@ void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id);
 void CALLBACK_FUNCTION ClearUsageCntrs(int id);
 void CALLBACK_FUNCTION CoolingHysteresisCallback(int id);
 void CALLBACK_FUNCTION DisplayBaroGraph(int id);
+void CALLBACK_FUNCTION DisplayHmdGraph(int id);
 void CALLBACK_FUNCTION DisplayUsageCntrs(int id);
 void CALLBACK_FUNCTION ExitCallback(int id);
 void CALLBACK_FUNCTION FanCallback(int id);
@@ -76,7 +78,7 @@ void CALLBACK_FUNCTION HumidityCalCallback(int id);
 void CALLBACK_FUNCTION MinRunTimeCallback(int id);
 void CALLBACK_FUNCTION ModeCallback(int id);
 void CALLBACK_FUNCTION PressureCalCallback(int id);
-void CALLBACK_FUNCTION SafePowerdown(int id);
+void CALLBACK_FUNCTION SafeShutdown(int id);
 void CALLBACK_FUNCTION TempCalCallback(int id);
 
 #endif // MENU_GENERATED_CODE_H

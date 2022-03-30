@@ -36,7 +36,7 @@
 #include "WifiCredentials.h"
 
 #define VERSION "1.1"
-#define LORENS_PREFERENCES 1
+#define LORENS_PREFERENCES 0
 
 #define DEBUG 1
 
@@ -74,7 +74,8 @@ float curBaro = 0; // BME280
 #define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
 
 int32_t baroDir = 0;             // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
-int16_t oldBaro[BARO_CNT] = {0}; // 12 hrs history, once every 10 min
+int16_t oldBaro[HIST_CNT] = {0}; // 12 hrs history, once every 10 min
+int16_t oldHumd[HIST_CNT] = {0}; // 12 hrs history, once every 10 min
 
 // The following variables are loaded from the menu
 // START of tcMenu loaded variables
@@ -119,7 +120,8 @@ void initBME280();
 void checkLocalVarChanges();
 void saveLocToEEPROM();
 void saveMenuToEEPROM();
-void LocalDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
+void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
+void blankDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
 void accumulateUsage();
 void loadMenuChanges();
 void readSensors();
@@ -129,7 +131,8 @@ void dehumidifyControl();
 void fanControl();
 void myResetCallback();
 void configEncoderForMode();
-void takeOverDisplay();
+void takeOverDisplayMain();
+void takeOverDisplayMisc();
 void shutDownPrevMode(bool force);
 void updateBaroRiseFall();
 
@@ -154,6 +157,7 @@ void timeSetup();
 void wifiSetup();
 
 void graphBaro(boolean drawAll);
+void graphHumidity(boolean drawAll);
 
 // Main Arduino setup function
 void setup()
@@ -427,6 +431,9 @@ void accumulateUsage()
 #define BARO_IDX_10MIN 0
 #define BARO_IDX_20MIN 1
 #define BARO_IDX_3HR (17)
+// This function determines rising or falling barometer so that the up or down
+// arrow can be set appropriately. It also gathers and stores historical barometeric
+// pressure and humidity readings for later graphing.
 void updateBaroRiseFall()
 {
     // Get baro int
@@ -435,9 +442,10 @@ void updateBaroRiseFall()
     // determine if ever initialized
     if (oldBaro[0] == 0)
     {
-        for (int i = 0; i < BARO_CNT; i++)
+        for (int i = 0; i < HIST_CNT; i++)
         {
             oldBaro[i] = curBaroInt;
+            oldHumd[i] = curHumd;
         }
     }
 
@@ -478,7 +486,7 @@ void updateBaroRiseFall()
                   baroSteady, baroDir);
 
     // shift baro history down and capture most recent
-    for (int i = (BARO_CNT - 1); i > 0; i--)
+    for (int i = (HIST_CNT - 1); i > 0; i--)
     {
         oldBaro[i] = oldBaro[i - 1];
     }
@@ -487,7 +495,7 @@ void updateBaroRiseFall()
 
 // This function is called by the renderer every 100 mS once the display is taken over.
 #define ENC_MAX 99
-void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
+void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 {
     static bool myDispInit = FALSE;
 
@@ -578,6 +586,16 @@ void localDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
         myDispInit = FALSE;
 
         lastMode = mode;
+    }
+}
+
+void blankDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
+{
+    // Go to the menu when enter pressed
+    if (clicked)
+    {
+        tft.setTextSize(1); // be sure to set back to default
+        renderer.giveBackDisplay();
     }
 }
 
@@ -898,24 +916,28 @@ void shutDownPrevMode(bool force)
         DH(OFF);
     }
 }
-
-void takeOverDisplay()
+void takeOverDisplayMain()
 {
     shutDownPrevMode(FALSE);
     configEncoderForMode();
-    renderer.takeOverDisplay(localDisplayFunction);
+    renderer.takeOverDisplay(mainDisplayFunction);
+}
+
+void takeOverDisplayMisc()
+{
+    renderer.takeOverDisplay(blankDisplayFunction);
 }
 
 // This function is called when the menu becomes inactive.
 void myResetCallback()
 {
-    takeOverDisplay();
+    takeOverDisplayMain();
 }
 
 // The tcMenu callbacks
 void CALLBACK_FUNCTION ExitCallback(int id)
 {
-    takeOverDisplay();
+    takeOverDisplayMain();
 }
 
 // The rest of these callbacks exist primarily to indicate that a menu
@@ -994,6 +1016,7 @@ void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
     accumulateUsage();
     saveLocToEEPROM();
 
+    takeOverDisplayMisc();
     tft.fillScreen(TFT_BLACK);
     tft.setCursor(0, 0, 2);
 
@@ -1007,7 +1030,14 @@ void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
 
 void CALLBACK_FUNCTION DisplayBaroGraph(int id)
 {
+    takeOverDisplayMisc();
     graphBaro(TRUE);
+}
+
+void CALLBACK_FUNCTION DisplayHmdGraph(int id)
+{
+    takeOverDisplayMisc();
+    graphHumidity(TRUE);
 }
 
 void CALLBACK_FUNCTION ClearUsageCntrs(int id)
@@ -1034,7 +1064,7 @@ void CALLBACK_FUNCTION ClearUsageCntrs(int id)
     DisplayUsageCntrs(0);
 }
 
-void CALLBACK_FUNCTION SafePowerdown(int id)
+void CALLBACK_FUNCTION SafeShutdown(int id)
 {
     // Save all variables to NVM
     accumulateUsage();
