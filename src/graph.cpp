@@ -1,5 +1,5 @@
 //
-//   This program provides cartesian type graph function.
+//   This function provides a Cartesian graph implementation.
 //   Originally written by Kris Kasprzak:
 //   https://github.com/KrisKasprzak/Graphing
 //
@@ -56,36 +56,37 @@ void Graph(TFT_eSPI &d,
 #define DKPURPLE 0x4010
 #define DKGREY 0x4A49
 
-// Call with drawAll == true. The the coordinate system will only brawn once.
-void graphBaro(boolean drawAll)
+// Call with drawGrid == true. The coordinate system will only drawn once.
+void graphBaro(boolean drawGrid)
 {
-    tft.fillScreen(BLACK);
+    uint32_t low = cbBaro[0];
+    uint32_t high = low;
 
-    uint32_t low = oldBaro[0];
-    uint32_t high = oldBaro[0];
-
-    for (int32_t n = 1; n < 72; n++)
+    // Scan data to get its range
+    for (int32_t n = 1; n < cbBaro.size(); n++)
     {
-        if (oldBaro[n] < low)
+        uint32_t tmp = cbBaro[n];
+
+        if (tmp < low)
         {
-            low = oldBaro[n];
+            low = tmp;
         }
-        else if (oldBaro[n] > high)
+        else if (tmp > high)
         {
-            high = oldBaro[n];
+            high = tmp;
         }
     }
 
-    // Note: these round up/downs are using integer math then floating
+    // Calculate data range for graph
+    // Note: these round up/downs are using integer math then floating for final division
     float_t ylo = ((float_t)(low / 100)) / 10;         // round down to nearest 0.100
     float_t yhi = ((float_t)((high + 99) / 100)) / 10; // round up to nearest 0.100
 
-    int32_t x;
-    float_t y;
+    tft.fillScreen(BLACK);
 
-    for (x = 0; x < HIST_CNT; x++)
+    for (int32_t x = 0; x < cbBaro.size(); x++)
     {
-        y = ((float_t)(oldBaro[(HIST_CNT - 1) - x])) / 1000;
+        float_t y = ((float_t)(cbBaro[x])) / 1000;
 
         Graph(tft,
               (float_t)x, y,             // data point
@@ -99,43 +100,42 @@ void graphBaro(boolean drawAll)
               YELLOW,                    // plotted data color
               WHITE,                     // text color
               BLACK,                     // background color
-              drawAll,                   // redraw flag
+              drawGrid,                  // redraw flag
               2);                        // digits
     }
 }
 
-// Call with drawAll == true. The the coordinate system will only brawn once.
-void graphHumidity(boolean drawAll)
+// Call with drawGrid == true. The coordinate system will only drawn once.
+void graphHumidity(boolean drawGrid)
 {
-    tft.fillScreen(BLACK);
+    uint32_t low = cbHumd[0];
+    uint32_t high = low;
 
-    uint32_t low = oldHumd[0];
-    uint32_t high = oldHumd[0];
-
-    for (int32_t n = 1; n < 72; n++)
+    // Scan data to get its range
+    for (int32_t n = 1; n < cbHumd.size(); n++)
     {
-        if (oldHumd[n] < low)
+        uint32_t tmp = cbHumd[n];
+
+        if (tmp < low)
         {
-            low = oldHumd[n];
+            low = tmp;
         }
-        else if (oldHumd[n] > high)
+        else if (tmp > high)
         {
-            high = oldHumd[n];
+            high = tmp;
         }
     }
 
+    // Calculate data range for graph
     // Note: these round up/downs are using integer math exclusively
     float_t ylo = low / 5 * 5;        // round down to nearest 5
     float_t yhi = (high + 4) / 5 * 5; // round up to nearest 5
 
-    int32_t x;
-    float_t y;
+    tft.fillScreen(BLACK);
 
-    for (x = 0; x < HIST_CNT; x++)
+    for (int32_t x = 0; x < cbHumd.size(); x++)
     {
-        y = ((float_t)(oldHumd[(HIST_CNT - 1) - x]));
-
-        //        Serial.printf("x: %u, y: %f\n", x, y);
+        float_t y = (float_t)cbHumd[x];
 
         Graph(tft,
               (float_t)x, y,             // data point
@@ -149,7 +149,7 @@ void graphHumidity(boolean drawAll)
               YELLOW,                    // plotted data color
               WHITE,                     // text color
               BLACK,                     // background color
-              drawAll,                   // redraw flag
+              drawGrid,                  // redraw flag
               0);                        // digits
     }
 }

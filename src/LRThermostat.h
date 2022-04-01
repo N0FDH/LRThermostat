@@ -3,6 +3,8 @@
 // terms of the Do What The Fuck You Want To Public License, Version 2,
 // as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
 
+#include <CircularBuffer.h>
+
 // Logical defines
 #define FALSE 0
 #define TRUE 1
@@ -55,19 +57,15 @@ typedef struct
 } EEPROM_LOCAL_VARS;
 extern EEPROM_LOCAL_VARS loc; // local working variables
 
-#if 0
-// Usage data stored in EEPROM
-typedef struct
-{
-    time_t timestamp;    // timestamp will always have bit 31 set but will != 0xFFFFFFFF
-    uint32_t useSeconds; // One or more "useSeconds" will follow the timestamp
-                         // Bits 30|29 will indicate which mode
-}
-#endif
-
 // Wifi and web server stuff
 extern void serverSetup();
 
-#define HIST_CNT (12 * 6)         // 12 hrs total, every 10 min
-extern int16_t oldBaro[HIST_CNT]; // 12 hrs history, once every 10 min
-extern int16_t oldHumd[HIST_CNT]; // 12 hrs history, once every 10 min
+// Other function prototypes
+void graphBaro(boolean drawGrid);
+void graphHumidity(boolean drawGrid);
+
+#define HIST_CNT (12 * 6) // every 10 min, 12 hrs total
+//#define HIST_CNT (24 * 6) // every 10 min, 24 hrs total
+extern CircularBuffer<uint16_t, HIST_CNT> cbBaro;
+extern CircularBuffer<int8_t, HIST_CNT> cbHumd;
+extern CircularBuffer<int8_t, HIST_CNT> cbTemp;

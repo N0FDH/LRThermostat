@@ -31,6 +31,7 @@
 #include <time.h>
 #include <WiFi.h>
 #include <Esp.h>
+#include <CircularBuffer.h>
 #include "LRThermostat.h"
 #include "LRThermostat_menu.h"
 #include "WifiCredentials.h"
@@ -73,9 +74,10 @@ float curBaro = 0; // BME280
 
 #define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
 
-int32_t baroDir = 0;             // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
-int16_t oldBaro[HIST_CNT] = {0}; // 12 hrs history, once every 10 min
-int16_t oldHumd[HIST_CNT] = {0}; // 12 hrs history, once every 10 min
+int32_t baroDir = 0;    // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
+CircularBuffer<uint16_t, HIST_CNT> cbBaro;
+CircularBuffer<int8_t, HIST_CNT> cbHumd;
+CircularBuffer<int8_t, HIST_CNT> cbTemp;
 
 // The following variables are loaded from the menu
 // START of tcMenu loaded variables
@@ -121,7 +123,7 @@ void checkLocalVarChanges();
 void saveLocToEEPROM();
 void saveMenuToEEPROM();
 void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
-void blankDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
+void altDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
 void accumulateUsage();
 void loadMenuChanges();
 void readSensors();
@@ -155,9 +157,6 @@ void dispBaro();
 
 void timeSetup();
 void wifiSetup();
-
-void graphBaro(boolean drawAll);
-void graphHumidity(boolean drawAll);
 
 // Main Arduino setup function
 void setup()
@@ -348,7 +347,14 @@ void loop()
             // rising, falling indicator.
             if (--time10min == 0)
             {
+                // Update baro display indicator; 
+                // Also save away latest data point
                 updateBaroRiseFall();
+
+                // Save latest data point for the other two
+                cbHumd.push(curHumd);
+                cbTemp.push(curTemp);
+
                 time10min = T_10MIN_IN_SEC;
             }
 
@@ -428,9 +434,9 @@ void accumulateUsage()
     dhSeconds = 0;
 }
 
-#define BARO_IDX_10MIN 0
-#define BARO_IDX_20MIN 1
-#define BARO_IDX_3HR (17)
+#define BARO_IDX_10MIN (cbBaro.size() - 1) // 0
+#define BARO_IDX_20MIN (cbBaro.size() - 2) // 1
+#define BARO_IDX_3HR (cbBaro.size() - 18)  //(17)
 // This function determines rising or falling barometer so that the up or down
 // arrow can be set appropriately. It also gathers and stores historical barometeric
 // pressure and humidity readings for later graphing.
@@ -439,20 +445,13 @@ void updateBaroRiseFall()
     // Get baro int
     int32_t curBaroInt = BARO_FLOAT_TO_INT(curBaro);
 
-    // determine if ever initialized
-    if (oldBaro[0] == 0)
-    {
-        for (int i = 0; i < HIST_CNT; i++)
-        {
-            oldBaro[i] = curBaroInt;
-            oldHumd[i] = curHumd;
-        }
-    }
-
     // See how much we have shifted in the 3 intervals
-    int32_t diff10min = curBaroInt - oldBaro[BARO_IDX_10MIN];
-    int32_t diff20min = curBaroInt - oldBaro[BARO_IDX_20MIN];
-    int32_t diff3hr = curBaroInt - oldBaro[BARO_IDX_3HR];
+    // Note: until we actually have the proper amount of readings to compare
+    // against, these will not be accurate. This shouldn't cause any problems,
+    // but is something to be aware of.
+    int32_t diff10min = curBaroInt - cbBaro[BARO_IDX_10MIN];
+    int32_t diff20min = curBaroInt - cbBaro[BARO_IDX_20MIN];
+    int32_t diff3hr = curBaroInt - cbBaro[BARO_IDX_3HR];
 
     // https://www.faa.gov/documentLibrary/media/Order/JO_7900.5E_with_Change_1.pdf, p.76
     // g.Pressure Falling Rapidly. Pressure falling rapidly occurs when station pressure falls at
@@ -480,17 +479,13 @@ void updateBaroRiseFall()
 
     Serial.printf("curBaro: %i, b10m: %i/%hi, b20m: %i/%hi, b3hr: %i/%hi, steady: %i, dir: %i\n",
                   curBaroInt,
-                  oldBaro[BARO_IDX_10MIN], diff10min,
-                  oldBaro[BARO_IDX_20MIN], diff20min,
-                  oldBaro[BARO_IDX_3HR], diff3hr,
+                  cbBaro[BARO_IDX_10MIN], diff10min,
+                  cbBaro[BARO_IDX_20MIN], diff20min,
+                  cbBaro[BARO_IDX_3HR], diff3hr,
                   baroSteady, baroDir);
 
-    // shift baro history down and capture most recent
-    for (int i = (HIST_CNT - 1); i > 0; i--)
-    {
-        oldBaro[i] = oldBaro[i - 1];
-    }
-    oldBaro[0] = curBaroInt;
+    // Capture new data point
+    cbBaro.push(curBaroInt);
 }
 
 // This function is called by the renderer every 100 mS once the display is taken over.
@@ -589,8 +584,36 @@ void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
     }
 }
 
-void blankDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
+// This function is called by the renderer every 100 mS once the display is taken over.
+#define ALT_DISPLAY_REFRESH_TIME (5 * 60 * 1000) // 5 minutes, in ms
+bool altDisplayFunctionInit = FALSE;
+void (*altDispRefreshFunc)(bool r);
+
+void altDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 {
+    static uint32_t refreshNow;
+
+    // If there is no refresh function, there is nothing to do other
+    // than wait to exit.
+    if (altDispRefreshFunc != NULL)
+    {
+        // Setup refresh
+        uint32_t timeNow = millis();
+        if (altDisplayFunctionInit == FALSE)
+        {
+            refreshNow = timeNow + ALT_DISPLAY_REFRESH_TIME;
+            altDisplayFunctionInit = TRUE;
+        }
+
+        if (timeNow >= refreshNow)
+        {
+            refreshNow = timeNow + ALT_DISPLAY_REFRESH_TIME;
+
+            // call refresh function
+            altDispRefreshFunc(TRUE);
+        }
+    }
+
     // Go to the menu when enter pressed
     if (clicked)
     {
@@ -925,7 +948,7 @@ void takeOverDisplayMain()
 
 void takeOverDisplayMisc()
 {
-    renderer.takeOverDisplay(blankDisplayFunction);
+    renderer.takeOverDisplay(altDisplayFunction);
 }
 
 // This function is called when the menu becomes inactive.
@@ -1030,18 +1053,24 @@ void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
 
 void CALLBACK_FUNCTION DisplayBaroGraph(int id)
 {
+    altDisplayFunctionInit = FALSE;
+    altDispRefreshFunc = graphBaro;
     takeOverDisplayMisc();
     graphBaro(TRUE);
 }
 
 void CALLBACK_FUNCTION DisplayHmdGraph(int id)
 {
+    altDisplayFunctionInit = FALSE;
+    altDispRefreshFunc = graphHumidity;
     takeOverDisplayMisc();
     graphHumidity(TRUE);
 }
 
 void CALLBACK_FUNCTION ClearUsageCntrs(int id)
 {
+    altDispRefreshFunc = NULL;
+
     heatSeconds = 0;
     coolSeconds = 0;
     dhSeconds = 0;
