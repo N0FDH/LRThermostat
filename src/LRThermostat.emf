@@ -35,6 +35,20 @@
       "parentId": 79,
       "type": "actionMenu",
       "item": {
+        "name": "Display Temp Graph",
+        "variableName": "DisplayTempGraph",
+        "id": 98,
+        "eepromAddress": -1,
+        "functionName": "DisplayTempGraph",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
         "name": "Display Hmd Graph",
         "variableName": "DisplayHmdGraph",
         "id": 97,

@@ -72,12 +72,15 @@ float curTemp = 0; // BME280
 float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
-#define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
+//#define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
+#define BARO_FLOAT_TO_INT(a) ((int32_t)(round((a) * 1000))) // keep integer + 3 decimal places, rounded first
+#define TEMP_FLOAT_TO_INT(a) ((int32_t)(round((a) * 10))) // keep integer + 1 decimal places, rounded first
+#define HUMD_FLOAT_TO_INT(a) TEMP_FLOAT_TO_INT(a)
 
 int32_t baroDir = 0;    // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
 CircularBuffer<uint16_t, HIST_CNT> cbBaro;
-CircularBuffer<int8_t, HIST_CNT> cbHumd;
-CircularBuffer<int8_t, HIST_CNT> cbTemp;
+CircularBuffer<int16_t, HIST_CNT> cbHumd;
+CircularBuffer<int16_t, HIST_CNT> cbTemp;
 
 // The following variables are loaded from the menu
 // START of tcMenu loaded variables
@@ -347,13 +350,14 @@ void loop()
             // rising, falling indicator.
             if (--time10min == 0)
             {
-                // Update baro display indicator; 
-                // Also save away latest data point
-                updateBaroRiseFall();
+                // Save latest data points
+                cbHumd.push(HUMD_FLOAT_TO_INT(curHumd));
+                cbTemp.push(TEMP_FLOAT_TO_INT(curTemp));
+                cbBaro.push(BARO_FLOAT_TO_INT(curBaro));
 
-                // Save latest data point for the other two
-                cbHumd.push(curHumd);
-                cbTemp.push(curTemp);
+                // Update baro display indicator;
+                // must be called after capturing a new point.
+                updateBaroRiseFall();
 
                 time10min = T_10MIN_IN_SEC;
             }
@@ -365,7 +369,7 @@ void loop()
                 time6hr = T_6HOURS_IN_SEC;
                 accumulateUsage();
 
-                // the loc vars get committed to EPROM below
+                // Note: the loc vars get committed to EPROM below
             }
         } // end of 1 sec loop
 
@@ -434,24 +438,25 @@ void accumulateUsage()
     dhSeconds = 0;
 }
 
-#define BARO_IDX_10MIN (cbBaro.size() - 1) // 0
-#define BARO_IDX_20MIN (cbBaro.size() - 2) // 1
-#define BARO_IDX_3HR (cbBaro.size() - 18)  //(17)
+#define BARO_IDX_NOW (cbBaro.size() - 1)
+#define BARO_IDX_10MIN (cbBaro.size() - 2)
+#define BARO_IDX_20MIN (cbBaro.size() - 3)
+#define BARO_IDX_3HR (cbBaro.size() - 19)
 // This function determines rising or falling barometer so that the up or down
 // arrow can be set appropriately. It also gathers and stores historical barometeric
 // pressure and humidity readings for later graphing.
 void updateBaroRiseFall()
 {
     // Get baro int
-    int32_t curBaroInt = BARO_FLOAT_TO_INT(curBaro);
+    int32_t curBaroLatest = cbBaro[BARO_IDX_NOW];
 
     // See how much we have shifted in the 3 intervals
     // Note: until we actually have the proper amount of readings to compare
     // against, these will not be accurate. This shouldn't cause any problems,
     // but is something to be aware of.
-    int32_t diff10min = curBaroInt - cbBaro[BARO_IDX_10MIN];
-    int32_t diff20min = curBaroInt - cbBaro[BARO_IDX_20MIN];
-    int32_t diff3hr = curBaroInt - cbBaro[BARO_IDX_3HR];
+    int32_t diff10min = curBaroLatest - cbBaro[BARO_IDX_10MIN];
+    int32_t diff20min = curBaroLatest - cbBaro[BARO_IDX_20MIN];
+    int32_t diff3hr = curBaroLatest - cbBaro[BARO_IDX_3HR];
 
     // https://www.faa.gov/documentLibrary/media/Order/JO_7900.5E_with_Change_1.pdf, p.76
     // g.Pressure Falling Rapidly. Pressure falling rapidly occurs when station pressure falls at
@@ -478,14 +483,11 @@ void updateBaroRiseFall()
     }
 
     Serial.printf("curBaro: %i, b10m: %i/%hi, b20m: %i/%hi, b3hr: %i/%hi, steady: %i, dir: %i\n",
-                  curBaroInt,
+                  curBaroLatest,
                   cbBaro[BARO_IDX_10MIN], diff10min,
                   cbBaro[BARO_IDX_20MIN], diff20min,
                   cbBaro[BARO_IDX_3HR], diff3hr,
                   baroSteady, baroDir);
-
-    // Capture new data point
-    cbBaro.push(curBaroInt);
 }
 
 // This function is called by the renderer every 100 mS once the display is taken over.
@@ -714,6 +716,8 @@ void readSensors()
     curTemp = (tempFilter.Current() * 1.8) + 32 + tempCal;
     curHumd = humdFilter.Current() + humdCal;
     curBaro = (baroFilter.Current() / 3386.39) + baroCal;
+
+    //    Serial.printf("t:%f, b:%f, h:%f\n", curTemp, curBaro, curHumd);
 }
 
 void initBME280()
@@ -1053,18 +1057,35 @@ void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
 
 void CALLBACK_FUNCTION DisplayBaroGraph(int id)
 {
-    altDisplayFunctionInit = FALSE;
-    altDispRefreshFunc = graphBaro;
-    takeOverDisplayMisc();
-    graphBaro(TRUE);
+    if (cbBaro.size())
+    {
+        altDisplayFunctionInit = FALSE;
+        altDispRefreshFunc = graphBaro;
+        takeOverDisplayMisc();
+        graphBaro(TRUE);
+    }
 }
 
 void CALLBACK_FUNCTION DisplayHmdGraph(int id)
 {
-    altDisplayFunctionInit = FALSE;
-    altDispRefreshFunc = graphHumidity;
-    takeOverDisplayMisc();
-    graphHumidity(TRUE);
+    if (cbHumd.size())
+    {
+        altDisplayFunctionInit = FALSE;
+        altDispRefreshFunc = graphHumidity;
+        takeOverDisplayMisc();
+        graphHumidity(TRUE);
+    }
+}
+
+void CALLBACK_FUNCTION DisplayTempGraph(int id)
+{
+    if (cbTemp.size())
+    {
+        altDisplayFunctionInit = FALSE;
+        altDispRefreshFunc = graphTemperature;
+        takeOverDisplayMisc();
+        graphTemperature(TRUE);
+    }
 }
 
 void CALLBACK_FUNCTION ClearUsageCntrs(int id)

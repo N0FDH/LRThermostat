@@ -74,8 +74,10 @@ const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Display Usage", 81, 0xffff
 ActionMenuItem menuDisplayUsageCntrs(&minfoDisplayUsageCntrs, &menuClearUsageCntrs);
 const PROGMEM AnyMenuInfo minfoDisplayHmdGraph = { "Display Hmd Graph", 97, 0xffff, 0, DisplayHmdGraph };
 ActionMenuItem menuDisplayHmdGraph(&minfoDisplayHmdGraph, &menuDisplayUsageCntrs);
+const PROGMEM AnyMenuInfo minfoDisplayTempGraph = { "Display Temp Graph", 98, 0xffff, 0, DisplayTempGraph };
+ActionMenuItem menuDisplayTempGraph(&minfoDisplayTempGraph, &menuDisplayHmdGraph);
 const PROGMEM AnyMenuInfo minfoDisplayBaroGraph = { "Display Baro Graph", 96, 0xffff, 0, DisplayBaroGraph };
-ActionMenuItem menuDisplayBaroGraph(&minfoDisplayBaroGraph, &menuDisplayHmdGraph);
+ActionMenuItem menuDisplayBaroGraph(&minfoDisplayBaroGraph, &menuDisplayTempGraph);
 RENDERING_CALLBACK_NAME_INVOKE(fnUsageAndGraphsRtCall, backSubItemRenderFn, "Usage and Graphs", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoUsageAndGraphs = { "Usage and Graphs", 79, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackUsageAndGraphs(fnUsageAndGraphsRtCall, &menuDisplayBaroGraph);

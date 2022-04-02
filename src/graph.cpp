@@ -56,7 +56,7 @@ void Graph(TFT_eSPI &d,
 #define DKPURPLE 0x4010
 #define DKGREY 0x4A49
 
-// Call with drawGrid == true. The coordinate system will only drawn once.
+// Call with drawGrid == true. The coordinate system will only be drawn once.
 void graphBaro(boolean drawGrid)
 {
     uint32_t low = cbBaro[0];
@@ -105,7 +105,7 @@ void graphBaro(boolean drawGrid)
     }
 }
 
-// Call with drawGrid == true. The coordinate system will only drawn once.
+// Call with drawGrid == true. The coordinate system will only be drawn once.
 void graphHumidity(boolean drawGrid)
 {
     uint32_t low = cbHumd[0];
@@ -128,14 +128,14 @@ void graphHumidity(boolean drawGrid)
 
     // Calculate data range for graph
     // Note: these round up/downs are using integer math exclusively
-    float_t ylo = low / 5 * 5;        // round down to nearest 5
-    float_t yhi = (high + 4) / 5 * 5; // round up to nearest 5
+    float_t ylo = low / 50 * 5;        // round down to nearest 5
+    float_t yhi = (high + 49) / 50 * 5; // round up to nearest 5
 
     tft.fillScreen(BLACK);
 
     for (int32_t x = 0; x < cbHumd.size(); x++)
     {
-        float_t y = (float_t)cbHumd[x];
+        float_t y = ((float_t)cbHumd[x])/10;
 
         Graph(tft,
               (float_t)x, y,             // data point
@@ -151,6 +151,55 @@ void graphHumidity(boolean drawGrid)
               BLACK,                     // background color
               drawGrid,                  // redraw flag
               0);                        // digits
+    }
+}
+
+// Call with drawGrid == true. The coordinate system will only be drawn once.
+void graphTemperature(boolean drawGrid)
+{
+    uint32_t low = cbTemp[0];
+    uint32_t high = low;
+
+    // Scan data to get its range
+    for (int32_t n = 1; n < cbTemp.size(); n++)
+    {
+        uint32_t tmp = cbTemp[n];
+
+        if (tmp < low)
+        {
+            low = tmp;
+        }
+        else if (tmp > high)
+        {
+            high = tmp;
+        }
+    }
+
+    // Calculate data range for graph
+    // Note: these round up/downs are using integer math exclusively
+    float_t ylo = low / 50 * 5;        // round down to nearest 5
+    float_t yhi = (high + 49) / 50 * 5; // round up to nearest 5
+
+    tft.fillScreen(BLACK);
+
+    for (int32_t x = 0; x < cbTemp.size(); x++)
+    {
+        float_t y = ((float_t)cbTemp[x])/10;
+
+        Graph(tft,
+              (float_t)x, y,               // data point
+              40, 100,                     // lower left corner of graph
+              110, 90,                     // width, height
+              0, 72, 12,                   // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5,   // ylow, yhi, yinc
+              "12 hr Temperature", "", "", // title, x-label, y-label
+              DKBLUE,                      // grid line color
+              DKBLUE,                      // axis lines color
+              YELLOW,                      // plotted data color
+              WHITE,                       // text color
+              BLACK,                       // background color
+              drawGrid,                    // redraw flag
+              0);                          // digits
     }
 }
 
