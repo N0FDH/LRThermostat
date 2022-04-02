@@ -128,14 +128,14 @@ void graphHumidity(boolean drawGrid)
 
     // Calculate data range for graph
     // Note: these round up/downs are using integer math exclusively
-    float_t ylo = low / 50 * 5;        // round down to nearest 5
-    float_t yhi = (high + 49) / 50 * 5; // round up to nearest 5
+    float_t ylo = low / 500 * 5;        // round down to nearest 5
+    float_t yhi = (high + 499) / 500 * 5; // round up to nearest 5
 
     tft.fillScreen(BLACK);
 
     for (int32_t x = 0; x < cbHumd.size(); x++)
     {
-        float_t y = ((float_t)cbHumd[x])/10;
+        float_t y = ((float_t)cbHumd[x])/100;
 
         Graph(tft,
               (float_t)x, y,             // data point
@@ -177,14 +177,14 @@ void graphTemperature(boolean drawGrid)
 
     // Calculate data range for graph
     // Note: these round up/downs are using integer math exclusively
-    float_t ylo = low / 50 * 5;        // round down to nearest 5
-    float_t yhi = (high + 49) / 50 * 5; // round up to nearest 5
+    float_t ylo = low / 500 * 5;        // round down to nearest 5
+    float_t yhi = (high + 499) / 500 * 5; // round up to nearest 5
 
     tft.fillScreen(BLACK);
 
     for (int32_t x = 0; x < cbTemp.size(); x++)
     {
-        float_t y = ((float_t)cbTemp[x])/10;
+        float_t y = ((float_t)cbTemp[x])/100;
 
         Graph(tft,
               (float_t)x, y,               // data point

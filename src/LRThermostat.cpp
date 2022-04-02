@@ -72,9 +72,9 @@ float curTemp = 0; // BME280
 float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
-//#define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places, rounded first
-#define BARO_FLOAT_TO_INT(a) ((int32_t)(round((a) * 1000))) // keep integer + 3 decimal places, rounded first
-#define TEMP_FLOAT_TO_INT(a) ((int32_t)(round((a) * 10))) // keep integer + 1 decimal places, rounded first
+//#define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places
+#define BARO_FLOAT_TO_INT(a) ((int32_t)(round((a) * 1000))) // keep integer + 3 decimal places
+#define TEMP_FLOAT_TO_INT(a) ((int32_t)(round((a) * 100)))  // keep integer + 2 decimal places
 #define HUMD_FLOAT_TO_INT(a) TEMP_FLOAT_TO_INT(a)
 
 int32_t baroDir = 0;    // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
