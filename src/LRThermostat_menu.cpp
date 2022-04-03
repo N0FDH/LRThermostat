@@ -70,13 +70,15 @@ const PROGMEM AnyMenuInfo minfoExitVar = { "Exit", 95, 0xffff, 0, ExitCallback }
 ActionMenuItem menuExitVar(&minfoExitVar, &menuModeEnum);
 const PROGMEM AnyMenuInfo minfoClearUsageCntrs = { "Clear Usage", 80, 0xffff, 0, ClearUsageCntrs };
 ActionMenuItem menuClearUsageCntrs(&minfoClearUsageCntrs, NULL);
-const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Display Usage", 81, 0xffff, 0, DisplayUsageCntrs };
+const PROGMEM AnyMenuInfo minfoDisplayUsageCntrs = { "Usage Counters", 81, 0xffff, 0, DisplayUsageCntrs };
 ActionMenuItem menuDisplayUsageCntrs(&minfoDisplayUsageCntrs, &menuClearUsageCntrs);
-const PROGMEM AnyMenuInfo minfoDisplayHmdGraph = { "Display Hmd Graph", 97, 0xffff, 0, DisplayHmdGraph };
-ActionMenuItem menuDisplayHmdGraph(&minfoDisplayHmdGraph, &menuDisplayUsageCntrs);
-const PROGMEM AnyMenuInfo minfoDisplayTempGraph = { "Display Temp Graph", 98, 0xffff, 0, DisplayTempGraph };
+const PROGMEM AnyMenuInfo minfoDisplaySysInfo = { "System Info", 99, 0xffff, 0, DisplaySysInfo };
+ActionMenuItem menuDisplaySysInfo(&minfoDisplaySysInfo, &menuDisplayUsageCntrs);
+const PROGMEM AnyMenuInfo minfoDisplayHmdGraph = { "Humidity Graph", 97, 0xffff, 0, DisplayHmdGraph };
+ActionMenuItem menuDisplayHmdGraph(&minfoDisplayHmdGraph, &menuDisplaySysInfo);
+const PROGMEM AnyMenuInfo minfoDisplayTempGraph = { "Temperature Graph", 98, 0xffff, 0, DisplayTempGraph };
 ActionMenuItem menuDisplayTempGraph(&minfoDisplayTempGraph, &menuDisplayHmdGraph);
-const PROGMEM AnyMenuInfo minfoDisplayBaroGraph = { "Display Baro Graph", 96, 0xffff, 0, DisplayBaroGraph };
+const PROGMEM AnyMenuInfo minfoDisplayBaroGraph = { "Baro Pres Graph", 96, 0xffff, 0, DisplayBaroGraph };
 ActionMenuItem menuDisplayBaroGraph(&minfoDisplayBaroGraph, &menuDisplayTempGraph);
 RENDERING_CALLBACK_NAME_INVOKE(fnUsageAndGraphsRtCall, backSubItemRenderFn, "Usage and Graphs", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoUsageAndGraphs = { "Usage and Graphs", 79, 0xffff, 0, NO_CALLBACK };

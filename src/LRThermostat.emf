@@ -21,7 +21,7 @@
       "parentId": 79,
       "type": "actionMenu",
       "item": {
-        "name": "Display Baro Graph",
+        "name": "Baro Pres Graph",
         "variableName": "DisplayBaroGraph",
         "id": 96,
         "eepromAddress": -1,
@@ -35,7 +35,7 @@
       "parentId": 79,
       "type": "actionMenu",
       "item": {
-        "name": "Display Temp Graph",
+        "name": "Temperature Graph",
         "variableName": "DisplayTempGraph",
         "id": 98,
         "eepromAddress": -1,
@@ -49,7 +49,7 @@
       "parentId": 79,
       "type": "actionMenu",
       "item": {
-        "name": "Display Hmd Graph",
+        "name": "Humidity Graph",
         "variableName": "DisplayHmdGraph",
         "id": 97,
         "eepromAddress": -1,
@@ -63,7 +63,21 @@
       "parentId": 79,
       "type": "actionMenu",
       "item": {
-        "name": "Display Usage",
+        "name": "System Info",
+        "variableName": "DisplaySysInfo",
+        "id": 99,
+        "eepromAddress": -1,
+        "functionName": "DisplaySysInfo",
+        "readOnly": false,
+        "localOnly": false,
+        "visible": true
+      }
+    },
+    {
+      "parentId": 79,
+      "type": "actionMenu",
+      "item": {
+        "name": "Usage Counters",
         "variableName": "DisplayUsageCntrs",
         "id": 81,
         "eepromAddress": -1,

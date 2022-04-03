@@ -59,6 +59,7 @@ extern EEPROM_LOCAL_VARS loc; // local working variables
 
 // Wifi and web server stuff
 extern void serverSetup();
+extern String WiFiSignal();
 
 // Other function prototypes
 void graphBaro(boolean drawGrid);
