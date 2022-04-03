@@ -8,7 +8,7 @@
 #include "LRThermostat.h"
 #include "LRThermostat_menu.h"
 
-void Graph(TFT_eSPI &d,
+void graph(TFT_eSPI &d,
            float_t x, float_t y,
            int32_t gx, int32_t gy, int32_t w, int32_t h,
            float_t xlo, float_t xhi, float_t xinc,
@@ -17,6 +17,14 @@ void Graph(TFT_eSPI &d,
            uint32_t gcolor, uint32_t acolor, uint32_t pcolor,
            uint32_t tcolor, uint32_t bcolor,
            boolean &redraw, uint32_t digits);
+
+void drawSetpointLine(TFT_eSPI &d,
+                      float_t y,
+                      int32_t gx, int32_t gy,
+                      int32_t w, int32_t h,
+                      float_t xlo, float_t xhi,
+                      float_t ylo, float_t yhi,
+                      uint32_t tcolor);
 
 #define LTBLUE 0xB6DF
 #define LTTEAL 0xBF5F
@@ -56,6 +64,27 @@ void Graph(TFT_eSPI &d,
 #define DKPURPLE 0x4010
 #define DKGREY 0x4A49
 
+//*****************************************************************************
+#define LOWER_LEFT_X 40
+#define LOWER_LEFT_Y 112
+#define WIDTH_X 110
+#define HEIGHT_Y 95
+#define TITLE_UL_X LOWER_LEFT_X
+#define TITLE_UL_Y 4
+//#define XLABEL_UL_X LOWER_LEFT_X
+#define XLABEL_UL_Y 117
+#define GRID_COLOR DKBLUE
+#define AXIS_COLOR DKBLUE
+#define DATA_COLOR YELLOW
+#define SETPT_COLOR RED
+#define TEXT_COLOR WHITE
+#define BG_COLOR BLACK
+#define XLOW 0
+#define XHI HIST_CNT
+#define XINC (XHI / 6) // TODO: should be related to hours to graph
+
+//*****************************************************************************
+
 // Call with drawGrid == true. The coordinate system will only be drawn once.
 void graphBaro(boolean drawGrid)
 {
@@ -63,7 +92,7 @@ void graphBaro(boolean drawGrid)
     uint32_t high = low;
 
     // Scan data to get its range
-    for (int32_t n = 1; n < cbBaro.size(); n++)
+    for (int32_t n = 0; n < cbBaro.size(); n++)
     {
         uint32_t tmp = cbBaro[n];
 
@@ -88,31 +117,31 @@ void graphBaro(boolean drawGrid)
     {
         float_t y = ((float_t)(cbBaro[x])) / 1000;
 
-        Graph(tft,
-              (float_t)x, y,             // data point
-              40, 100,                   // lower left corner of graph
-              110, 90,                   // width, height
-              0, 72, 12,                 // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
-              "12 hr Baro Pres", "", "", // title, x-label, y-label
-              DKBLUE,                    // grid line color
-              DKBLUE,                    // axis lines color
-              YELLOW,                    // plotted data color
-              WHITE,                     // text color
-              BLACK,                     // background color
-              drawGrid,                  // redraw flag
-              2);                        // digits
+        graph(tft,
+              (float_t)x, y,               // data point
+              LOWER_LEFT_X, LOWER_LEFT_Y,  // lower left corner of graph
+              WIDTH_X, HEIGHT_Y,           // width, height
+              XLOW, XHI, XINC,             // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5,   // ylow, yhi, yinc
+              "  12 hr Baro Pres", "", "", // title, x-label, y-label
+              GRID_COLOR,                  // grid line color
+              AXIS_COLOR,                  // axis lines color
+              DATA_COLOR,                  // plotted data color
+              TEXT_COLOR,                  // text color
+              BG_COLOR,                    // background color
+              drawGrid,                    // redraw flag
+              2);                          // digits
     }
 }
 
 // Call with drawGrid == true. The coordinate system will only be drawn once.
 void graphHumidity(boolean drawGrid)
 {
-    uint32_t low = cbHumd[0];
+    uint32_t low = loc.dhSetPt * 100; // start with setpoint to be sure it is included
     uint32_t high = low;
 
     // Scan data to get its range
-    for (int32_t n = 1; n < cbHumd.size(); n++)
+    for (int32_t n = 0; n < cbHumd.size(); n++)
     {
         uint32_t tmp = cbHumd[n];
 
@@ -128,8 +157,8 @@ void graphHumidity(boolean drawGrid)
 
     // Calculate data range for graph
     // Note: these round up/downs are using integer math exclusively
-    float_t ylo = low / 500 * 5;        // round down to nearest 5
-    float_t yhi = (high + 499) / 500 * 5; // round up to nearest 5
+    float_t ylo = low / 1000 * 10;          // round down to nearest 10
+    float_t yhi = (high + 999) / 1000 * 10; // round up to nearest 10
 
     tft.fillScreen(BLACK);
 
@@ -137,31 +166,40 @@ void graphHumidity(boolean drawGrid)
     {
         float_t y = ((float_t)cbHumd[x])/100;
 
-        Graph(tft,
-              (float_t)x, y,             // data point
-              40, 100,                   // lower left corner of graph
-              110, 90,                   // width, height
-              0, 72, 12,                 // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
-              " 12 hr Humidity", "", "", // title, x-label, y-label
-              DKBLUE,                    // grid line color
-              DKBLUE,                    // axis lines color
-              YELLOW,                    // plotted data color
-              WHITE,                     // text color
-              BLACK,                     // background color
-              drawGrid,                  // redraw flag
-              0);                        // digits
+        graph(tft,
+              (float_t)x, y,              // data point
+              LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
+              WIDTH_X, HEIGHT_Y,          // width, height
+              XLOW, XHI, XINC,            // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5,  // ylow, yhi, yinc
+              "  12 hr Humidity", "", "", // title, x-label, y-label
+              GRID_COLOR,                 // grid line color
+              AXIS_COLOR,                 // axis lines color
+              DATA_COLOR,                 // plotted data color
+              TEXT_COLOR,                 // text color
+              BG_COLOR,                   // background color
+              drawGrid,                   // redraw flag
+              0);                         // digits
     }
+
+    // Draw the setpoint
+    drawSetpointLine(tft,
+                     (float_t)loc.dhSetPt,       // Set point
+                     LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
+                     WIDTH_X, HEIGHT_Y,          // width, height
+                     XLOW, XHI,                  // xlow, xhi
+                     ylo, yhi,                   // ylow, yhi
+                     SETPT_COLOR);               // setpoint line color
 }
 
 // Call with drawGrid == true. The coordinate system will only be drawn once.
 void graphTemperature(boolean drawGrid)
 {
-    uint32_t low = cbTemp[0];
+    uint32_t low = loc.heatSetPt * 100; // start with setpoint to be sure it is included
     uint32_t high = low;
 
     // Scan data to get its range
-    for (int32_t n = 1; n < cbTemp.size(); n++)
+    for (int32_t n = 0; n < cbTemp.size(); n++)
     {
         uint32_t tmp = cbTemp[n];
 
@@ -175,6 +213,8 @@ void graphTemperature(boolean drawGrid)
         }
     }
 
+    Serial.printf("l:%u  h:%u\n", low, high);
+
     // Calculate data range for graph
     // Note: these round up/downs are using integer math exclusively
     float_t ylo = low / 500 * 5;        // round down to nearest 5
@@ -186,21 +226,30 @@ void graphTemperature(boolean drawGrid)
     {
         float_t y = ((float_t)cbTemp[x])/100;
 
-        Graph(tft,
+        graph(tft,
               (float_t)x, y,               // data point
-              40, 100,                     // lower left corner of graph
-              110, 90,                     // width, height
-              0, 72, 12,                   // xlow, xhi, xinc
+              LOWER_LEFT_X, LOWER_LEFT_Y,  // lower left corner of graph
+              WIDTH_X, HEIGHT_Y,           // width, height
+              XLOW, XHI, XINC,             // xlow, xhi, xinc
               ylo, yhi, (yhi - ylo) / 5,   // ylow, yhi, yinc
               "12 hr Temperature", "", "", // title, x-label, y-label
-              DKBLUE,                      // grid line color
-              DKBLUE,                      // axis lines color
-              YELLOW,                      // plotted data color
-              WHITE,                       // text color
-              BLACK,                       // background color
+              GRID_COLOR,                  // grid line color
+              AXIS_COLOR,                  // axis lines color
+              DATA_COLOR,                  // plotted data color
+              TEXT_COLOR,                  // text color
+              BG_COLOR,                    // background color
               drawGrid,                    // redraw flag
               0);                          // digits
     }
+
+    // Draw the setpoint
+    drawSetpointLine(tft,
+                     (float_t)loc.heatSetPt,     // Set point
+                     LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
+                     WIDTH_X, HEIGHT_Y,          // width, height
+                     XLOW, XHI,                  // xlow, xhi
+                     ylo, yhi,                   // ylow, yhi
+                     SETPT_COLOR);               // setpoint line color
 }
 
 //   Function to draw a cartesian coordinate system and plot whatever data you want
@@ -229,7 +278,7 @@ void graphTemperature(boolean drawGrid)
 //   bcolor = background color
 //   &redraw = flag to redraw graph on first call only
 //   digits = number of significant digits after decimal point on y-axis labels
-void Graph(TFT_eSPI &d,
+void graph(TFT_eSPI &d,
            float_t x, float_t y,
            int32_t gx, int32_t gy, int32_t w, int32_t h,
            float_t xlo, float_t xhi, float_t xinc,
@@ -264,37 +313,49 @@ void Graph(TFT_eSPI &d,
 
             if (digits)
             {
-                d.drawFloat(i, digits, gx - 40, temp - 2, 1);
+                d.drawFloat(i, digits, gx - 36, temp - 4, 1);
             }
             else
             {
-                d.drawNumber(i, gx - 18, temp - 2, 1);
+                d.drawNumber(i, gx - 18, temp - 4, 1);
             }
         }
 
         // Draw x scale
         //***************************************************************************
+        int32_t num = 0;
         for (i = xlo; i <= xhi; i += xinc)
         {
             // compute the transform
             temp = (i - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
 
             d.drawLine(temp, gy, temp, gy - h, (i == 0) ? acolor : gcolor);
+
+            // 0 - 12 by 2
+            if (num < 10)
+            {
+                d.drawNumber(num, temp - 3, XLABEL_UL_Y, 1);
+            }
+            else
+            {
+                d.drawNumber(num, temp - 6, XLABEL_UL_Y, 1);
+            }
+            num += 2;
         }
 
         // Now draw the labels
         //*****************************************************************************
         d.setTextColor(tcolor, bcolor);
-        d.drawString(title, gx + 7, gy + 10, 1);
+        d.drawString(title, TITLE_UL_X, TITLE_UL_Y, 1);
 
-        d.setTextColor(acolor, bcolor);
-        d.drawString(xlabel, gx, gy + 20, 1);
+        //        d.setTextColor(acolor, bcolor);
+        //        d.drawString(xlabel, XLABEL_UL_X, XLABEL_UL_Y, 1);
 
-        d.setTextColor(acolor, bcolor);
-        d.drawString(ylabel, gx - 30, gy - h - 10, 1);
+        //        d.setTextColor(acolor, bcolor);
+        //        d.drawString(ylabel, gx - 30, gy - h - 10, 1);
     }
 
-    // Graph drawn, now plot the data
+    // graph drawn, now plot the data
     //*****************************************************************************
     // The entire plotting code are these few lines...
     // Tecall that ox and oy are initialized as static above
@@ -306,4 +367,44 @@ void Graph(TFT_eSPI &d,
 
     ox = x;
     oy = y;
+}
+
+//   Helper function for "graph()" -- draws the setpoint line
+//   &d name of your display object
+//   y = setpoint
+//   gx = x graph location (lower left)
+//   gy = y graph location (lower left)
+//   w = width of graph
+//   h = height of graph
+//   xlo = lower bound of x axis
+//   xhi = upper bound of x asis
+//   ylo = lower bound of y axis
+//   yhi = upper bound of y asis
+//   tcolor = setpoint color
+void drawSetpointLine(TFT_eSPI &d,
+                      float_t y,
+                      int32_t gx, int32_t gy,
+                      int32_t w, int32_t h,
+                      float_t xlo, float_t xhi,
+                      float_t ylo, float_t yhi,
+                      uint32_t tcolor)
+{
+    float_t ox, oy;
+    float_t x;
+
+    // point at X0
+    x = xlo;
+    ox = (x - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
+    oy = (y - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
+
+    // point at X1
+    x = xhi;
+    x = (x - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
+    y = (y - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
+
+    d.drawLine(ox, oy, x, y, tcolor);
+    if (x < (XHI - 1))
+    {
+        d.drawLine(ox + 1, oy, x + 1, y, tcolor);
+    }
 }
