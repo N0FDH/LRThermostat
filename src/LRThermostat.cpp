@@ -5,14 +5,16 @@
 
 // Features to add / bugs to fix
 // - Write main HTML status page including uptime and "on times"
-// - Add a menu item to display:
+// - Sync to ntp if possible
+// - setpoint line on graphs should be conditional to MODE
+//
+// - DONE - Add a menu item to display:
 //                WiFi signal strength
 //                SSID
 //                IP addr
 //                MAC
 //                FW version
 //                Uptime
-// - Sync to ntp if possible
 // - DONE - Sync the graph redraw into the 10min loop (using funct*) to eliminate seperate timer
 
 #include <Arduino.h>
