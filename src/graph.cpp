@@ -26,6 +26,12 @@ void drawSetpointLine(TFT_eSPI &d,
                       float_t ylo, float_t yhi,
                       uint32_t tcolor);
 
+// Not used, but this does work. remember to negate 'h' if you are using it.
+float_t transform(float_t *p1, float_t *p2, int32_t *p3, float_t *p4, int32_t *p5)
+{
+    return (*p1 - *p2) * ((float_t)(*p3)) / (*p4 - *p2) + ((float_t)(*p5));
+}
+
 #define LTBLUE 0xB6DF
 #define LTTEAL 0xBF5F
 #define LTGREEN 0xBFF7
@@ -212,8 +218,6 @@ void graphTemperature(boolean drawGrid)
             high = tmp;
         }
     }
-
-    Serial.printf("l:%u  h:%u\n", low, high);
 
     // Calculate data range for graph
     // Note: these round up/downs are using integer math exclusively

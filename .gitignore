@@ -9,3 +9,5 @@ lib/README
 src/WifiCredentials.h
 src/LRThermostat.cpp-save
 .vscode/settings.json
+src/graph.txt
+.gitignore

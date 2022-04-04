@@ -42,6 +42,7 @@
 */
 
 #include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
 #include "LRThermostat.h"
 
 String webpage = ""; // General purpose variable to hold HTML code for display
@@ -60,6 +61,9 @@ void serverSetup()
 {
     SetupWebpageHandlers();
     server.begin();
+
+    // Start OTA server as well
+    AsyncElegantOTA.begin(&server);
 
     Serial.printf("webserver up\n");
 }

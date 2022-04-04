@@ -258,7 +258,7 @@ void loop()
                 }
             }
         }
-
+        
         // Service tcMenu
         taskManager.runLoop();
 
@@ -358,7 +358,9 @@ void loop()
 
                 // call refresh function
                 if (altDispRefreshFunc)
+                {
                     altDispRefreshFunc(TRUE);
+                }
 
                 time10min = T_10MIN_IN_SEC;
             }
@@ -588,37 +590,8 @@ void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 }
 
 // This function is called by the renderer every 100 mS once the display is taken over.
-//#define ALT_DISPLAY_REFRESH_TIME (5 * 60 * 1000) // 5 minutes, in ms
-// bool altDisplayFunctionInit = FALSE;
-// void (*altDispRefreshFunc)(bool r);
-
 void altDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 {
-#if 0
-    static uint32_t refreshNow;
-
-    // If there is no refresh function, there is nothing to do other
-    // than wait to exit.
-    if (altDispRefreshFunc != NULL)
-    {
-        // Setup refresh
-        uint32_t timeNow = millis();
-        if (altDisplayFunctionInit == FALSE)
-        {
-            refreshNow = timeNow + ALT_DISPLAY_REFRESH_TIME;
-            altDisplayFunctionInit = TRUE;
-        }
-
-        if (timeNow >= refreshNow)
-        {
-            refreshNow = timeNow + ALT_DISPLAY_REFRESH_TIME;
-
-            // call refresh function
-            altDispRefreshFunc(TRUE);
-        }
-    }
-#endif
-
     // Go to the menu when enter pressed
     if (clicked)
     {
@@ -1128,7 +1101,6 @@ void CALLBACK_FUNCTION DisplayBaroGraph(int id)
 {
     if (cbBaro.size())
     {
-        //        altDisplayFunctionInit = FALSE;
         altDispRefreshFunc = graphBaro;
         takeOverDisplayMisc();
         graphBaro(TRUE);
@@ -1139,7 +1111,6 @@ void CALLBACK_FUNCTION DisplayHmdGraph(int id)
 {
     if (cbHumd.size())
     {
-        //        altDisplayFunctionInit = FALSE;
         altDispRefreshFunc = graphHumidity;
         takeOverDisplayMisc();
         graphHumidity(TRUE);
@@ -1150,7 +1121,6 @@ void CALLBACK_FUNCTION DisplayHmdGraph(int id)
     {
         if (cbTemp.size())
         {
-            //        altDisplayFunctionInit = FALSE;
             altDispRefreshFunc = graphTemperature;
             takeOverDisplayMisc();
             graphTemperature(TRUE);
