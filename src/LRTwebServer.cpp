@@ -60,10 +60,10 @@ void Homepage();
 void serverSetup()
 {
     SetupWebpageHandlers();
-    server.begin();
 
     // Start OTA server as well
     AsyncElegantOTA.begin(&server);
+    server.begin();
 
     Serial.printf("webserver up\n");
 }
@@ -168,8 +168,8 @@ void append_HTML_header(bool refreshMode)
     webpage += "<title>" + sitetitle + "</title>";
     webpage += "<meta charset='UTF-8'>";
     if (refreshMode)
-        webpage += "<meta http-equiv='refresh' content='5'>"; // 5-secs refresh time, test needed to prevent auto updates repeating some commands
-                                                              //  webpage += "<script src=\"https://code.jquery.com/jquery-3.2.1.min.js\"></script>";
+        webpage += "<meta http-equiv='refresh' content='60'>"; // 5-secs refresh time, test needed to prevent auto updates repeating some commands
+                                                               //  webpage += "<script src=\"https://code.jquery.com/jquery-3.2.1.min.js\"></script>";
     webpage += "<style>";
     webpage += "body             {width:68em;margin-left:auto;margin-right:auto;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:blue;background-color:#e1e1ff;text-align:center;}";
     webpage += ".centre          {margin-left:auto;margin-right:auto;}";
