@@ -211,8 +211,6 @@ void setup()
     HEAT(OFF);
     pinMode(AC_RELAY, OUTPUT);
     COOL(OFF);
-    pinMode(DH_RELAY, OUTPUT);
-    DH(OFF);
 
     // Set ST7735 back light high for now
     pinMode(BACK_LIGHT, OUTPUT);

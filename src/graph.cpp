@@ -73,29 +73,35 @@ void drawSetpointLine(TFT_eSPI &d,
 #define DKGREY 0x4A49
 
 //*****************************************************************************
-#define LOWER_LEFT_X 40
-#define LOWER_LEFT_Y 112
+// Note: X increases left to right
+//       Y increases top to bottom
 #define WIDTH_X 110
 #define HEIGHT_Y 95
-#define TITLE_UL_X LOWER_LEFT_X
+
+#define GRAPH_UL_X 40
+#define GRAPH_UL_Y 17
+
+#define GRAPH_LL_X GRAPH_UL_X
+#define GRAPH_LL_Y (GRAPH_UL_Y + HEIGHT_Y)
+
+#define TITLE_UL_X GRAPH_UL_X
 #define TITLE_UL_Y 4
-//#define XLABEL_UL_X LOWER_LEFT_X
-#define XLABEL_UL_Y 117
+
+#define XNUMS_UL_X GRAPH_UL_X
+#define XNUMS_UL_Y 117
+
 #define GRID_COLOR DKBLUE
 #define AXIS_COLOR DKBLUE
 #define DATA_COLOR YELLOW
 #define SETPT_COLOR RED
 #define TEXT_COLOR WHITE
 #define BG_COLOR BLACK
+
 #define XLOW 0
 #define XHI HIST_CNT
 #define XINC (XHI / 6) // TODO: should be related to hours to graph
 
-// Upper left box of graph
-//#define CUR_VAL_X (LOWER_LEFT_X + 4)
-//#define CUR_VAL_Y ((LOWER_LEFT_Y - HEIGHT_Y) + 4)
-
-// After title
+// Current val after title
 #define CUR_VAL_X 115
 #define CUR_VAL_Y TITLE_UL_Y
 
@@ -134,19 +140,19 @@ void graphBaro(boolean drawGrid)
         float_t y = ((float_t)(cbBaro[x])) / 1000;
 
         graph(tft,
-              (float_t)x, y,              // data point
-              LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
-              WIDTH_X, HEIGHT_Y,          // width, height
-              XLOW, XHI, XINC,            // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5,  // ylow, yhi, yinc
-              "  Baro Pres", "", "",       // title, x-label, y-label
-              GRID_COLOR,                 // grid line color
-              AXIS_COLOR,                 // axis lines color
-              DATA_COLOR,                 // plotted data color
-              TEXT_COLOR,                 // text color
-              BG_COLOR,                   // background color
-              drawGrid,                   // redraw flag
-              2);                         // digits
+              (float_t)x, y,             // data point
+              GRAPH_LL_X, GRAPH_LL_Y,    // lower left corner of graph
+              WIDTH_X, HEIGHT_Y,         // width, height
+              XLOW, XHI, XINC,           // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
+              "  Baro Pres", "", "",     // title, x-label, y-label
+              GRID_COLOR,                // grid line color
+              AXIS_COLOR,                // axis lines color
+              DATA_COLOR,                // plotted data color
+              TEXT_COLOR,                // text color
+              BG_COLOR,                  // background color
+              drawGrid,                  // redraw flag
+              2);                        // digits
     }
 
     // Finally, add current val
@@ -187,29 +193,29 @@ void graphHumidity(boolean drawGrid)
         float_t y = ((float_t)cbHumd[x])/100;
 
         graph(tft,
-              (float_t)x, y,              // data point
-              LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
-              WIDTH_X, HEIGHT_Y,          // width, height
-              XLOW, XHI, XINC,            // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5,  // ylow, yhi, yinc
-              "  Humidity", "", "",       // title, x-label, y-label
-              GRID_COLOR,                 // grid line color
-              AXIS_COLOR,                 // axis lines color
-              DATA_COLOR,                 // plotted data color
-              TEXT_COLOR,                 // text color
-              BG_COLOR,                   // background color
-              drawGrid,                   // redraw flag
-              0);                         // digits
+              (float_t)x, y,             // data point
+              GRAPH_LL_X, GRAPH_LL_Y,    // lower left corner of graph
+              WIDTH_X, HEIGHT_Y,         // width, height
+              XLOW, XHI, XINC,           // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
+              "  Humidity", "", "",      // title, x-label, y-label
+              GRID_COLOR,                // grid line color
+              AXIS_COLOR,                // axis lines color
+              DATA_COLOR,                // plotted data color
+              TEXT_COLOR,                // text color
+              BG_COLOR,                  // background color
+              drawGrid,                  // redraw flag
+              0);                        // digits
     }
 
     // Draw the setpoint
     drawSetpointLine(tft,
-                     (float_t)loc.dhSetPt,       // Set point
-                     LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
-                     WIDTH_X, HEIGHT_Y,          // width, height
-                     XLOW, XHI,                  // xlow, xhi
-                     ylo, yhi,                   // ylow, yhi
-                     SETPT_COLOR);               // setpoint line color
+                     (float_t)loc.dhSetPt,   // Set point
+                     GRAPH_LL_X, GRAPH_LL_Y, // lower left corner of graph
+                     WIDTH_X, HEIGHT_Y,      // width, height
+                     XLOW, XHI,              // xlow, xhi
+                     ylo, yhi,               // ylow, yhi
+                     SETPT_COLOR);           // setpoint line color
 
     // Finally, add current val
     tft.setTextColor(DATA_COLOR, BG_COLOR);
@@ -250,29 +256,29 @@ void graphTemperature(boolean drawGrid)
         float_t y = ((float_t)cbTemp[x])/100;
 
         graph(tft,
-              (float_t)x, y,              // data point
-              LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
-              WIDTH_X, HEIGHT_Y,          // width, height
-              XLOW, XHI, XINC,            // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5,  // ylow, yhi, yinc
-              " Temperature", "", "",     // title, x-label, y-label
-              GRID_COLOR,                 // grid line color
-              AXIS_COLOR,                 // axis lines color
-              DATA_COLOR,                 // plotted data color
-              TEXT_COLOR,                 // text color
-              BG_COLOR,                   // background color
-              drawGrid,                   // redraw flag
-              0);                         // digits
+              (float_t)x, y,             // data point
+              GRAPH_LL_X, GRAPH_LL_Y,    // lower left corner of graph
+              WIDTH_X, HEIGHT_Y,         // width, height
+              XLOW, XHI, XINC,           // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
+              " Temperature", "", "",    // title, x-label, y-label
+              GRID_COLOR,                // grid line color
+              AXIS_COLOR,                // axis lines color
+              DATA_COLOR,                // plotted data color
+              TEXT_COLOR,                // text color
+              BG_COLOR,                  // background color
+              drawGrid,                  // redraw flag
+              0);                        // digits
     }
 
     // Draw the setpoint
     drawSetpointLine(tft,
-                     (float_t)loc.heatSetPt,     // Set point
-                     LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
-                     WIDTH_X, HEIGHT_Y,          // width, height
-                     XLOW, XHI,                  // xlow, xhi
-                     ylo, yhi,                   // ylow, yhi
-                     SETPT_COLOR);               // setpoint line color
+                     (float_t)loc.heatSetPt, // Set point
+                     GRAPH_LL_X, GRAPH_LL_Y, // lower left corner of graph
+                     WIDTH_X, HEIGHT_Y,      // width, height
+                     XLOW, XHI,              // xlow, xhi
+                     ylo, yhi,               // ylow, yhi
+                     SETPT_COLOR);           // setpoint line color
 
     // Finally, add current val
     tft.setTextColor(DATA_COLOR, BG_COLOR);
@@ -362,11 +368,11 @@ void graph(TFT_eSPI &d,
             // 0 - 12 by 2
             if (num < 10)
             {
-                d.drawNumber(num, temp - 3, XLABEL_UL_Y, 1);
+                d.drawNumber(num, temp - 3, XNUMS_UL_Y, 1);
             }
             else
             {
-                d.drawNumber(num, temp - 6, XLABEL_UL_Y, 1);
+                d.drawNumber(num, temp - 6, XNUMS_UL_Y, 1);
             }
             num += 2;
         }
@@ -377,7 +383,7 @@ void graph(TFT_eSPI &d,
         d.drawString(title, TITLE_UL_X, TITLE_UL_Y, 1);
 
         //        d.setTextColor(acolor, bcolor);
-        //        d.drawString(xlabel, XLABEL_UL_X, XLABEL_UL_Y, 1);
+        //        d.drawString(xlabel, XNUMS_UL_X, XNUMS_UL_Y, 1);
 
         //        d.setTextColor(acolor, bcolor);
         //        d.drawString(ylabel, gx - 30, gy - h - 10, 1);
@@ -420,12 +426,11 @@ void drawSetpointLine(TFT_eSPI &d,
     float_t ox, oy;
     float_t x;
 
-    // point at X0
-    x = xlo;
+    // X0 point
     ox = (x - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
     oy = (y - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
 
-    // point at X1
+    // X1 point
     x = xhi;
     x = (x - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
     y = (y - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
