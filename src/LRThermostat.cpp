@@ -7,15 +7,8 @@
 // - Write main HTML status page including uptime and "on times"
 // - Sync to ntp if possible
 // - setpoint line on graphs should be conditional to MODE
-//
-// - DONE - Add a menu item to display:
-//                WiFi signal strength
-//                SSID
-//                IP addr
-//                MAC
-//                FW version
-//                Uptime
-// - DONE - Sync the graph redraw into the 10min loop (using funct*) to eliminate seperate timer
+// - Up/down buttons scroll through 6/12/24 hrs on graphs
+
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -1443,13 +1436,11 @@ void dispBaro()
 
 //*********************************************************************************************
 const char *timeZone = "CST6CDT,M3.2.0,M11.1.0";
-const char *ntpServer1 = "pool.ntp.org";
-const char *ntpServer2 = "time.nist.gov";
 
 void timeSetup()
 {
     // init and get the time
-    configTzTime(timeZone, ntpServer1, ntpServer2);
+    configTzTime(timeZone, "pool.ntp.org", "time.nist.gov");
 }
 
 //*********************************************************************************************

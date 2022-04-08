@@ -26,11 +26,13 @@ void drawSetpointLine(TFT_eSPI &d,
                       float_t ylo, float_t yhi,
                       uint32_t tcolor);
 
-// Not used, but this does work. remember to negate 'h' if you are using it.
-float_t transform(float_t *p1, float_t *p2, int32_t *p3, float_t *p4, int32_t *p5)
-{
-    return (*p1 - *p2) * ((float_t)(*p3)) / (*p4 - *p2) + ((float_t)(*p5));
-}
+// Not used, but this does work. remember to negate 'h' if you are using it. I don't
+// think it buys anything by using it. The big, clunky floats gotta be loaded and "mathed"
+// no matter how its done.
+// float_t transform(float_t *p1, float_t *p2, int32_t *p3, float_t *p4, int32_t *p5)
+// {
+//     return (*p1 - *p2) * ((float_t)(*p3)) / (*p4 - *p2) + ((float_t)(*p5));
+// }
 
 #define LTBLUE 0xB6DF
 #define LTTEAL 0xBF5F
@@ -89,6 +91,12 @@ float_t transform(float_t *p1, float_t *p2, int32_t *p3, float_t *p4, int32_t *p
 #define XHI HIST_CNT
 #define XINC (XHI / 6) // TODO: should be related to hours to graph
 
+//#define CUR_VAL_X (LOWER_LEFT_X + 4)
+//#define CUR_VAL_Y ((LOWER_LEFT_Y - HEIGHT_Y) + 4)
+
+#define CUR_VAL_X 115
+#define CUR_VAL_Y TITLE_UL_Y
+
 //*****************************************************************************
 
 // Call with drawGrid == true. The coordinate system will only be drawn once.
@@ -124,20 +132,24 @@ void graphBaro(boolean drawGrid)
         float_t y = ((float_t)(cbBaro[x])) / 1000;
 
         graph(tft,
-              (float_t)x, y,               // data point
-              LOWER_LEFT_X, LOWER_LEFT_Y,  // lower left corner of graph
-              WIDTH_X, HEIGHT_Y,           // width, height
-              XLOW, XHI, XINC,             // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5,   // ylow, yhi, yinc
-              "  12 hr Baro Pres", "", "", // title, x-label, y-label
-              GRID_COLOR,                  // grid line color
-              AXIS_COLOR,                  // axis lines color
-              DATA_COLOR,                  // plotted data color
-              TEXT_COLOR,                  // text color
-              BG_COLOR,                    // background color
-              drawGrid,                    // redraw flag
-              2);                          // digits
+              (float_t)x, y,              // data point
+              LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
+              WIDTH_X, HEIGHT_Y,          // width, height
+              XLOW, XHI, XINC,            // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5,  // ylow, yhi, yinc
+              "  Baro Pres", "", "",       // title, x-label, y-label
+              GRID_COLOR,                 // grid line color
+              AXIS_COLOR,                 // axis lines color
+              DATA_COLOR,                 // plotted data color
+              TEXT_COLOR,                 // text color
+              BG_COLOR,                   // background color
+              drawGrid,                   // redraw flag
+              2);                         // digits
     }
+
+    // Finally, add current val
+    tft.setTextColor(DATA_COLOR, BG_COLOR);
+    tft.drawFloat(curBaro, 2, CUR_VAL_X, CUR_VAL_Y, 1);
 }
 
 // Call with drawGrid == true. The coordinate system will only be drawn once.
@@ -178,7 +190,7 @@ void graphHumidity(boolean drawGrid)
               WIDTH_X, HEIGHT_Y,          // width, height
               XLOW, XHI, XINC,            // xlow, xhi, xinc
               ylo, yhi, (yhi - ylo) / 5,  // ylow, yhi, yinc
-              "  12 hr Humidity", "", "", // title, x-label, y-label
+              "  Humidity", "", "",       // title, x-label, y-label
               GRID_COLOR,                 // grid line color
               AXIS_COLOR,                 // axis lines color
               DATA_COLOR,                 // plotted data color
@@ -196,6 +208,11 @@ void graphHumidity(boolean drawGrid)
                      XLOW, XHI,                  // xlow, xhi
                      ylo, yhi,                   // ylow, yhi
                      SETPT_COLOR);               // setpoint line color
+
+    // Finally, add current val
+    tft.setTextColor(DATA_COLOR, BG_COLOR);
+    tft.drawNumber(round(curHumd), CUR_VAL_X, CUR_VAL_Y, 1);
+    tft.drawString("%", CUR_VAL_X + 12, CUR_VAL_Y, 1);
 }
 
 // Call with drawGrid == true. The coordinate system will only be drawn once.
@@ -231,19 +248,19 @@ void graphTemperature(boolean drawGrid)
         float_t y = ((float_t)cbTemp[x])/100;
 
         graph(tft,
-              (float_t)x, y,               // data point
-              LOWER_LEFT_X, LOWER_LEFT_Y,  // lower left corner of graph
-              WIDTH_X, HEIGHT_Y,           // width, height
-              XLOW, XHI, XINC,             // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5,   // ylow, yhi, yinc
-              "12 hr Temperature", "", "", // title, x-label, y-label
-              GRID_COLOR,                  // grid line color
-              AXIS_COLOR,                  // axis lines color
-              DATA_COLOR,                  // plotted data color
-              TEXT_COLOR,                  // text color
-              BG_COLOR,                    // background color
-              drawGrid,                    // redraw flag
-              0);                          // digits
+              (float_t)x, y,              // data point
+              LOWER_LEFT_X, LOWER_LEFT_Y, // lower left corner of graph
+              WIDTH_X, HEIGHT_Y,          // width, height
+              XLOW, XHI, XINC,            // xlow, xhi, xinc
+              ylo, yhi, (yhi - ylo) / 5,  // ylow, yhi, yinc
+              " Temperature", "", "",     // title, x-label, y-label
+              GRID_COLOR,                 // grid line color
+              AXIS_COLOR,                 // axis lines color
+              DATA_COLOR,                 // plotted data color
+              TEXT_COLOR,                 // text color
+              BG_COLOR,                   // background color
+              drawGrid,                   // redraw flag
+              0);                         // digits
     }
 
     // Draw the setpoint
@@ -254,6 +271,11 @@ void graphTemperature(boolean drawGrid)
                      XLOW, XHI,                  // xlow, xhi
                      ylo, yhi,                   // ylow, yhi
                      SETPT_COLOR);               // setpoint line color
+
+    // Finally, add current val
+    tft.setTextColor(DATA_COLOR, BG_COLOR);
+    tft.drawNumber(round(curTemp), (CUR_VAL_X + 10), CUR_VAL_Y, 1);
+    tft.drawString("o", (CUR_VAL_X + 10) + 12, CUR_VAL_Y - 3, 1);
 }
 
 //   Function to draw a cartesian coordinate system and plot whatever data you want
