@@ -30,7 +30,8 @@
 // Hardware definitions
 #define FAN_RELAY 16        // GPIO
 #define HEAT_RELAY 17       // GPIO
-#define AC_RELAY HEAT_RELAY // GPIO
+#define AC_RELAY 18         // GPIO
+#define BACK_LIGHT 25       // GPIO
 #define DH_RELAY HEAT_RELAY // GPIO
 
 // Misc defines
@@ -212,6 +213,10 @@ void setup()
     COOL(OFF);
     pinMode(DH_RELAY, OUTPUT);
     DH(OFF);
+
+    // Set ST7735 back light high for now
+    pinMode(BACK_LIGHT, OUTPUT);
+    digitalWrite(BACK_LIGHT, HIGH);
 
     // Wifi
     wifiSetup();

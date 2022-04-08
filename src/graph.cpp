@@ -91,9 +91,11 @@ void drawSetpointLine(TFT_eSPI &d,
 #define XHI HIST_CNT
 #define XINC (XHI / 6) // TODO: should be related to hours to graph
 
+// Upper left box of graph
 //#define CUR_VAL_X (LOWER_LEFT_X + 4)
 //#define CUR_VAL_Y ((LOWER_LEFT_Y - HEIGHT_Y) + 4)
 
+// After title
 #define CUR_VAL_X 115
 #define CUR_VAL_Y TITLE_UL_Y
 
