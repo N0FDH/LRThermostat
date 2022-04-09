@@ -22,17 +22,7 @@
 #include "LRThermostat_menu.h"
 #include "WifiCredentials.h"
 
-#define VERSION "1.1"
-#define LORENS_PREFERENCES 0
-
 #define DEBUG 1
-
-// Hardware definitions
-#define FAN_RELAY 16        // GPIO
-#define HEAT_RELAY 17       // GPIO
-#define AC_RELAY 18         // GPIO
-#define BACK_LIGHT 25       // GPIO
-#define DH_RELAY HEAT_RELAY // GPIO
 
 // Misc defines
 #define MENU_MAGIC_KEY 0xB00B
@@ -47,10 +37,17 @@
 #define A_KNOWN_GOOD_TIME 1600000000   // "9/13/2020 7:26:40 CST" in case you are wondering :)
 
 // Relay control macros
+#if (PCB_VERSION == 0)
 #define FAN(a) digitalWrite(FAN_RELAY, ((a) ? (OFF) : (ON)))
 #define HEAT(a) digitalWrite(HEAT_RELAY, ((a) ? (OFF) : (ON)))
 #define COOL(a) digitalWrite(AC_RELAY, ((a) ? (OFF) : (ON)))
 #define DH(a) digitalWrite(DH_RELAY, ((a) ? (OFF) : (ON)))
+#else
+#define FAN(a) digitalWrite(FAN_RELAY, ((a) ? (ON) : (OFF)))
+#define HEAT(a) digitalWrite(HEAT_RELAY, ((a) ? (ON) : (OFF)))
+#define COOL(a) digitalWrite(AC_RELAY, ((a) ? (ON) : (OFF)))
+#define DH(a) digitalWrite(DH_RELAY, ((a) ? (ON) : (OFF)))
+#endif
 
 // Temp/humidity/pressure sensor - BME280
 Adafruit_BME280 bme;
@@ -215,6 +212,11 @@ void setup()
     // Set ST7735 back light high for now
     pinMode(BACK_LIGHT, OUTPUT);
     digitalWrite(BACK_LIGHT, HIGH);
+
+    // Switches
+    pinMode(UP_SWITCH, INPUT_PULLUP);
+    pinMode(DOWN_SWITCH, INPUT_PULLUP);
+    pinMode(ENTER_SWITCH, INPUT_PULLUP);
 
     // Wifi
     wifiSetup();
@@ -1083,7 +1085,7 @@ void GatherSysInfo(bool unused)
     tft.println("Signal Strength: " + WiFiSignal());
 
     // FWV
-    tft.printf("FW Ver: %s\n", VERSION);
+    tft.printf("FW Ver: %.1f\n", FW_VERSION);
 }
 
 void CALLBACK_FUNCTION DisplaySysInfo(int id)

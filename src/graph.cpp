@@ -392,7 +392,7 @@ void graph(TFT_eSPI &d,
     // graph drawn, now plot the data
     //*****************************************************************************
     // The entire plotting code are these few lines...
-    // Tecall that ox and oy are initialized as static above
+    // Recall that ox and oy are initialized as static above
     x = (x - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
     y = (y - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
 
@@ -427,6 +427,7 @@ void drawSetpointLine(TFT_eSPI &d,
     float_t x;
 
     // X0 point
+    x = xlo;
     ox = (x - xlo) * ((float_t)w) / (xhi - xlo) + (float_t)gx;
     oy = (y - ylo) * ((float_t)-h) / (yhi - ylo) + (float_t)gy;
 

@@ -11,6 +11,7 @@
 #include <tcMenu.h>
 #include "LRThermostat_menu.h"
 #include "ThemeCoolBlueTraditional.h"
+#include "LRThermostat.h"
 
 // Global variable declarations
 const PROGMEM  ConnectorLocalInfo applicationInfo = { "Thermostat Menu", "a4a49d27-69e5-459b-a2ea-e3e521bd54d2" };
@@ -93,7 +94,7 @@ void setupMenu() {
     tft.setRotation(3);
     renderer.setUpdatesPerSecond(10);
     switches.initialise(internalDigitalIo(), true);
-    menuMgr.initForUpDownOk(&renderer, &menuUsageAndGraphs, 15, 13, 4);
+    menuMgr.initForUpDownOk(&renderer, &menuUsageAndGraphs, DOWN_SWITCH, UP_SWITCH, ENTER_SWITCH);
     renderer.setTitleMode(BaseGraphicalRenderer::TITLE_ALWAYS);
     renderer.setUseSliderForAnalog(false);
     installCoolBlueTraditionalTheme(renderer, MenuFontDef(nullptr, 2), MenuFontDef(nullptr, 1), true);

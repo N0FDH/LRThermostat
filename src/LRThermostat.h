@@ -5,6 +5,26 @@
 
 #include <CircularBuffer.h>
 
+#define FW_VERSION 1.2
+#define PCB_VERSION 0 // 0 = prototype, 1=1st main release, etc
+#define LORENS_PREFERENCES 0
+
+// Hardware definitions
+#define FAN_RELAY 16        // GPIO
+#define HEAT_RELAY 17       // GPIO
+#define AC_RELAY 18         // GPIO
+#define BACK_LIGHT 25       // GPIO
+#define DH_RELAY HEAT_RELAY // DH always uses HEAT relay
+#define ENTER_SWITCH 4      // GPIO
+
+#if (PCB_VERSION == 0)
+#define UP_SWITCH 13   // GPIO
+#define DOWN_SWITCH 15 // GPIO
+#else
+#define UP_SWITCH 35   // GPIO
+#define DOWN_SWITCH 34 // GPIO
+#endif
+
 // Logical defines
 #define FALSE 0
 #define TRUE 1
