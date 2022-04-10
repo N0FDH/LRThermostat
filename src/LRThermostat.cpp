@@ -1456,5 +1456,47 @@ void wifiSetup()
     WiFi.mode(WIFI_STA);
     WiFi.setAutoConnect(true);
     WiFi.setAutoReconnect(true);
-    WiFi.begin(ssid, password);
+
+    // The credentials to use is based upon the state of the UP and ENTER switches
+    // at boot time, according to the followingn table:
+    //
+    //      ENTER       UP(date)        ACTION
+    //      no          no              default, use credentials from EEPROM**
+    //      no          yes             same as default (no new action)
+    //      yes         no              use FW credentials, do NOT UPdate EEPROM
+    //      yes         yes             use FW credentials, DO UPdate EEPROM
+    //
+    // **If no credentials in EEPROM, use FW credentials and store them to EEPROM.
+    //   This should be a one time occurance only.
+
+    // Check if anything stored in EEPROM
+    if (loc.ssid[0] == 0xFF)
+    {
+        // EEPROM is empty, store fw credentials to EEPROM
+        // This is the one time occurance mentioned above
+        strcpy(loc.ssid, ssid);
+        strcpy(loc.password, password);
+
+        Serial.println("Copy FW to EEPROM - first time");
+    }
+
+    // Now start normal checks for button presses
+    if (!digitalRead(ENTER_SWITCH))
+    {
+        if (!digitalRead(UP_SWITCH))
+        {
+            Serial.println("Copy FW to EEPROM - UP pressed");
+
+            // Copy to EEPROM (UPdate)
+            strcpy(loc.ssid, ssid);
+            strcpy(loc.password, password);
+        }
+        Serial.println("Using FW creds");
+        WiFi.begin(ssid, password);  // use FW credentials
+    }
+    else
+    {
+        Serial.println("Using EEPROM creds");
+        WiFi.begin(loc.ssid, loc.password); // use FW credentials
+    }
 }
