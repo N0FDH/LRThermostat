@@ -6,7 +6,7 @@
 #include <CircularBuffer.h>
 
 #define FW_VERSION 1.2
-#define PCB_VERSION 0 // 0 = prototype, 1=1st main release, etc
+#define PCB_VERSION 0 // 0 = prototype, 1 = 1st main release, etc
 #define LORENS_PREFERENCES 0
 
 // Hardware definitions

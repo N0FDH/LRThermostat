@@ -1,8 +1,11 @@
+// Copyright © 2022 Randy Rysavy <randy.rysavy@gmail.com>
+// This work is free. You can redistribute it and/or modify it under the
+// terms of the Do What The Fuck You Want To Public License, Version 2,
+// as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
 //
-//   This function provides a Cartesian graph implementation.
-//   Originally written by Kris Kasprzak:
-//   https://github.com/KrisKasprzak/Graphing
-//
+// This function provides a Cartesian graph implementation.
+// Originally written by Kris Kasprzak:
+// https://github.com/KrisKasprzak/Graphing
 
 #include <Arduino.h>
 #include "LRThermostat.h"

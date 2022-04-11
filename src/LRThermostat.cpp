@@ -1472,12 +1472,18 @@ void wifiSetup()
     // Check if anything stored in EEPROM
     if (loc.ssid[0] == 0xFF)
     {
-        // EEPROM is empty, store fw credentials to EEPROM
-        // This is the one time occurance mentioned above
-        strcpy(loc.ssid, ssid);
-        strcpy(loc.password, password);
-
+        // EEPROM is empty, store fw credentials to EEPROM.
+        // This is the one time occurance mentioned above.
         Serial.println("Copy FW to EEPROM - first time");
+
+        strncpy(loc.ssid, ssid, sizeof(loc.ssid) - 1);
+        strncpy(loc.password, password, sizeof(loc.password) - 1);
+
+        // Make sure the field is null terminated so we don't have a runaway buffer.
+        // This only needs to be done once as well, as long as we only copy at most
+        // "sizeof(a)-1" bytes.
+        loc.ssid[sizeof(loc.ssid) - 1] = 0;         // make sure null terminated
+        loc.password[sizeof(loc.password) - 1] = 0; // make sure null terminated
     }
 
     // Now start normal checks for button presses
@@ -1488,15 +1494,15 @@ void wifiSetup()
             Serial.println("Copy FW to EEPROM - UP pressed");
 
             // Copy to EEPROM (UPdate)
-            strcpy(loc.ssid, ssid);
-            strcpy(loc.password, password);
+            strncpy(loc.ssid, ssid, sizeof(loc.ssid) - 1);
+            strncpy(loc.password, password, sizeof(loc.password) - 1);
         }
         Serial.println("Using FW creds");
-        WiFi.begin(ssid, password);  // use FW credentials
+        WiFi.begin(ssid, password);
     }
     else
     {
         Serial.println("Using EEPROM creds");
-        WiFi.begin(loc.ssid, loc.password); // use FW credentials
+        WiFi.begin(loc.ssid, loc.password);
     }
 }
