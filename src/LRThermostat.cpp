@@ -9,7 +9,6 @@
 // - setpoint line on graphs should be conditional to MODE
 // - Up/down buttons scroll through 6/12/24 hrs on graphs
 
-
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
 #include <EEPROM.h>
@@ -57,12 +56,12 @@ float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
 //#define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places
-#define BARO_FLOAT_TO_INT(a) ((int32_t)(round((a) * 1000))) // keep integer + 3 decimal places
-#define TEMP_FLOAT_TO_INT(a) ((int32_t)(round((a) * 100)))  // keep integer + 2 decimal places
+#define BARO_FLOAT_TO_INT(a) ((int32_t)(round((a)*1000))) // keep integer + 3 decimal places
+#define TEMP_FLOAT_TO_INT(a) ((int32_t)(round((a)*100)))  // keep integer + 2 decimal places
 #define HUMD_FLOAT_TO_INT(a) TEMP_FLOAT_TO_INT(a)
 
-int32_t baroDir = 0;    // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
-CircularBuffer<uint16_t, HIST_CNT> cbBaro;
+int32_t baroDir = 0; // 0 == steady, (+/-)1 == rise/fall, (+/-)2 == rapid rise/fall
+CircularBuffer<int16_t, HIST_CNT> cbBaro;
 CircularBuffer<int16_t, HIST_CNT> cbHumd;
 CircularBuffer<int16_t, HIST_CNT> cbTemp;
 
@@ -145,7 +144,7 @@ void dispBaro();
 void timeSetup();
 void wifiSetup();
 
-void (*altDispRefreshFunc)(bool r) = NULL;
+void (*altDispRefreshFunc)(GRAPH_CNT c) = NULL;
 
 // Main Arduino setup function
 void setup()
@@ -256,7 +255,7 @@ void loop()
                 }
             }
         }
-        
+
         // Service tcMenu
         taskManager.runLoop();
 
@@ -357,7 +356,7 @@ void loop()
                 // call refresh function
                 if (altDispRefreshFunc)
                 {
-                    altDispRefreshFunc(TRUE);
+                    altDispRefreshFunc(GR_0H);
                 }
 
                 time10min = T_10MIN_IN_SEC;
@@ -590,11 +589,40 @@ void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 // This function is called by the renderer every 100 mS once the display is taken over.
 void altDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
 {
+    static uint32_t oldEncVal = 1;
+
+    // Only attempt graph size stuff, if displaying a graph
+    if (altDispRefreshFunc)
+    {
+        if (encoderValue != oldEncVal)
+        {
+            switch (encoderValue)
+            {
+            case 0:
+                altDispRefreshFunc(GR_6H);
+                break;
+
+            case 1:
+                altDispRefreshFunc(GR_12H);
+                break;
+
+            case 2:
+                altDispRefreshFunc(GR_24H);
+                break;
+            }
+
+            oldEncVal = encoderValue;
+        }
+
+        graphUpdateCurVal(GR_NULL);
+    }
+
     // Go to the menu when enter pressed
     if (clicked)
     {
         tft.setTextSize(1); // be sure to set back to default
         altDispRefreshFunc = NULL;
+        oldEncVal = 1;
         renderer.giveBackDisplay();
     }
 }
@@ -925,6 +953,9 @@ void takeOverDisplayMain()
 
 void takeOverDisplayMisc()
 {
+    // Encoder goes from 0 - 2. Encoder is set to mid-point (1)
+    switches.changeEncoderPrecision(2, 1);
+
     renderer.takeOverDisplay(altDisplayFunction);
 }
 
@@ -1090,7 +1121,7 @@ void GatherSysInfo(bool unused)
 
 void CALLBACK_FUNCTION DisplaySysInfo(int id)
 {
-    altDispRefreshFunc = GatherSysInfo;
+    //    altDispRefreshFunc = GatherSysInfo;
     takeOverDisplayMisc();
     GatherSysInfo(TRUE);
 }
@@ -1101,7 +1132,7 @@ void CALLBACK_FUNCTION DisplayBaroGraph(int id)
     {
         altDispRefreshFunc = graphBaro;
         takeOverDisplayMisc();
-        graphBaro(TRUE);
+        graphBaro(GR_12H);
     }
 }
 
@@ -1111,171 +1142,171 @@ void CALLBACK_FUNCTION DisplayHmdGraph(int id)
     {
         altDispRefreshFunc = graphHumidity;
         takeOverDisplayMisc();
-        graphHumidity(TRUE);
+        graphHumidity(GR_12H);
     }
 }
 
-    void CALLBACK_FUNCTION DisplayTempGraph(int id)
+void CALLBACK_FUNCTION DisplayTempGraph(int id)
+{
+    if (cbTemp.size())
     {
-        if (cbTemp.size())
-        {
-            altDispRefreshFunc = graphTemperature;
-            takeOverDisplayMisc();
-            graphTemperature(TRUE);
-        }
+        altDispRefreshFunc = graphTemperature;
+        takeOverDisplayMisc();
+        graphTemperature(GR_12H);
+    }
+}
+
+void CALLBACK_FUNCTION ClearUsageCntrs(int id)
+{
+    altDispRefreshFunc = NULL;
+
+    heatSeconds = 0;
+    coolSeconds = 0;
+    dhSeconds = 0;
+    loc.heatSeconds = 0;
+    loc.coolSeconds = 0;
+    loc.dhSeconds = 0;
+
+    time_t now;
+    time(&now);
+
+    if (now > A_KNOWN_GOOD_TIME)
+    {
+        loc.lastClear = now;
+    }
+    else
+    {
+        loc.lastClear = 0;
     }
 
-    void CALLBACK_FUNCTION ClearUsageCntrs(int id)
+    DisplayUsageCntrs(0);
+}
+
+void CALLBACK_FUNCTION SafeShutdown(int id)
+{
+    // Save all variables to NVM
+    accumulateUsage();
+    saveLocToEEPROM();
+    saveMenuToEEPROM();
+
+    // Shut down thermostat functions
+    shutDownPrevMode(TRUE);
+
+    tft.fillScreen(TFT_BLACK);
+    tft.setCursor(0, 0, 2);
+
+    tft.printf("It is safe to power off!\n\n");
+    tft.printf("The system will restart\nin 60 seconds.\n");
+
+    // The ONLY delay() found in this FW :)
+    delay(60 * 1000);
+    ESP.restart();
+}
+
+void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id)
+{
+    float val = menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat();
+    Serial.printf("CB - BaroSteady: %0.4f\n", val);
+    menuChg = TRUE;
+}
+
+void CALLBACK_FUNCTION BaroRapidLoLimitCallback(int id)
+{
+    Serial.printf("TODO: REMOVE!\n");
+}
+
+void CALLBACK_FUNCTION PressureCalCallback(int id)
+{
+    float val = menuPressureCal.getLargeNumber()->getAsFloat();
+    Serial.printf("CB - PressCal: %0.2f\n", val);
+    menuChg = TRUE;
+}
+
+//******************************** Display Routines *******************************************
+void dispMain()
+{
+    const int32_t x = 47;
+    const int32_t y = 42;
+
+    if (mode == DEHUMIDIFY)
     {
-        altDispRefreshFunc = NULL;
-
-        heatSeconds = 0;
-        coolSeconds = 0;
-        dhSeconds = 0;
-        loc.heatSeconds = 0;
-        loc.coolSeconds = 0;
-        loc.dhSeconds = 0;
-
-        time_t now;
-        time(&now);
-
-        if (now > A_KNOWN_GOOD_TIME)
-        {
-            loc.lastClear = now;
-        }
-        else
-        {
-            loc.lastClear = 0;
-        }
-
-        DisplayUsageCntrs(0);
+        tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+        tft.drawNumber(round(curHumd), x, y, 7); // Temperature using font 7
+        tft.drawString("%", x + 67, y - 5, 2);
     }
-
-    void CALLBACK_FUNCTION SafeShutdown(int id)
+    else
     {
-        // Save all variables to NVM
-        accumulateUsage();
-        saveLocToEEPROM();
-        saveMenuToEEPROM();
-
-        // Shut down thermostat functions
-        shutDownPrevMode(TRUE);
-
-        tft.fillScreen(TFT_BLACK);
-        tft.setCursor(0, 0, 2);
-
-        tft.printf("It is safe to power off!\n\n");
-        tft.printf("The system will restart\nin 60 seconds.\n");
-
-        // The ONLY delay() found in this FW :)
-        delay(60 * 1000);
-        ESP.restart();
+        tft.setTextColor(TFT_CYAN, TFT_BLACK);   // Note: the new fonts do not draw the background colour
+        tft.drawNumber(round(curTemp), x, y, 7); // Temperature using font 7
+        tft.drawString("O", x + 67, y - 5, 2);
     }
+}
 
-    void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id)
+//******************************** Secondary Display ******************************************
+void dispSmall()
+{
+    const int32_t x = 8;
+    const int32_t y = 8;
+
+    if (mode == DEHUMIDIFY)
     {
-        float val = menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat();
-        Serial.printf("CB - BaroSteady: %0.4f\n", val);
-        menuChg = TRUE;
-    }
-
-    void CALLBACK_FUNCTION BaroRapidLoLimitCallback(int id)
-    {
-        Serial.printf("TODO: REMOVE!\n");
-    }
-
-    void CALLBACK_FUNCTION PressureCalCallback(int id)
-    {
-        float val = menuPressureCal.getLargeNumber()->getAsFloat();
-        Serial.printf("CB - PressCal: %0.2f\n", val);
-        menuChg = TRUE;
-    }
-
-    //******************************** Display Routines *******************************************
-    void dispMain()
-    {
-        const int32_t x = 47;
-        const int32_t y = 42;
-
-        if (mode == DEHUMIDIFY)
-        {
-            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-            tft.drawNumber(round(curHumd), x, y, 7); // Temperature using font 7
-            tft.drawString("%", x + 67, y - 5, 2);
-        }
-        else
-        {
-            tft.setTextColor(TFT_CYAN, TFT_BLACK);   // Note: the new fonts do not draw the background colour
-            tft.drawNumber(round(curTemp), x, y, 7); // Temperature using font 7
-            tft.drawString("O", x + 67, y - 5, 2);
-        }
-    }
-
-    //******************************** Secondary Display ******************************************
-    void dispSmall()
-    {
-        const int32_t x = 8;
-        const int32_t y = 8;
-
-        if (mode == DEHUMIDIFY)
-        {
-            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-            tft.setTextSize(2);
-            tft.drawNumber(round(curTemp), x, y, 1); // font 1
-            tft.setTextSize(1);
-            tft.drawString(" o", x + 22, y - 2, 1);
-        }
-        else
-        {
-            tft.setTextColor(TFT_ORANGE, TFT_BLACK);
-            tft.setTextSize(2);
-            tft.drawNumber(round(curHumd), x, y, 1); // Humidity at font 1
-            tft.setTextSize(1);
-            tft.drawString(" %", x + 22, y - 2, 1);
-        }
-    }
-
-    //******************************* Set point ***************************************************
-    void dispSetPt()
-    {
-        const int32_t x = 100;
-        const int32_t y = 8;
-
-        if (mode == NO_MODE)
-        {
-            return;
-        }
-
-        tft.setTextColor(mode == DEHUMIDIFY ? TFT_PINK : TFT_YELLOW, TFT_BLACK);
-        tft.drawString("SET", x, y, 1);
+        tft.setTextColor(TFT_YELLOW, TFT_BLACK);
         tft.setTextSize(2);
-        if (*pSetPt > 9)
-        {
-            tft.drawNumber((uint32_t)(*pSetPt), x + 23, y, 1); // font 1
-        }
-        else
-        {
-            tft.drawString(" ", x + 23, y, 1);
-            tft.drawNumber((uint32_t)(*pSetPt), x + 35, y, 1); // font 1
-        }
+        tft.drawNumber(round(curTemp), x, y, 1); // font 1
         tft.setTextSize(1);
-        tft.drawString(mode == DEHUMIDIFY ? " %" : " o", x + 45, y - 2, 1);
+        tft.drawString(" o", x + 22, y - 2, 1);
     }
+    else
+    {
+        tft.setTextColor(TFT_ORANGE, TFT_BLACK);
+        tft.setTextSize(2);
+        tft.drawNumber(round(curHumd), x, y, 1); // Humidity at font 1
+        tft.setTextSize(1);
+        tft.drawString(" %", x + 22, y - 2, 1);
+    }
+}
+
+//******************************* Set point ***************************************************
+void dispSetPt()
+{
+    const int32_t x = 100;
+    const int32_t y = 8;
+
+    if (mode == NO_MODE)
+    {
+        return;
+    }
+
+    tft.setTextColor(mode == DEHUMIDIFY ? TFT_PINK : TFT_YELLOW, TFT_BLACK);
+    tft.drawString("SET", x, y, 1);
+    tft.setTextSize(2);
+    if (*pSetPt > 9)
+    {
+        tft.drawNumber((uint32_t)(*pSetPt), x + 23, y, 1); // font 1
+    }
+    else
+    {
+        tft.drawString(" ", x + 23, y, 1);
+        tft.drawNumber((uint32_t)(*pSetPt), x + 35, y, 1); // font 1
+    }
+    tft.setTextSize(1);
+    tft.drawString(mode == DEHUMIDIFY ? " %" : " o", x + 45, y - 2, 1);
+}
 
 //****************************************** MODES ********************************************
 #define MODE_DISP_X 8
 #define MODE_DISP_Y 95
-    void dispCoolOff()
-    {
-        const int32_t x = MODE_DISP_X;
-        const int32_t y = MODE_DISP_Y;
+void dispCoolOff()
+{
+    const int32_t x = MODE_DISP_X;
+    const int32_t y = MODE_DISP_Y;
 
-        tft.setTextColor(TFT_WHITE, TFT_BLACK);
-        tft.drawString("OFF ", x, y, 1); // len = 4
-        tft.setTextSize(2);
-        tft.drawString("COOL", x, y + 13, 1);
-        tft.setTextSize(1);
-    }
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.drawString("OFF ", x, y, 1); // len = 4
+    tft.setTextSize(2);
+    tft.drawString("COOL", x, y + 13, 1);
+    tft.setTextSize(1);
+}
 
 void dispCoolWait()
 {

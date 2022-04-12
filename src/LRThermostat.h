@@ -87,12 +87,29 @@ extern void serverSetup();
 extern String WiFiSignal();
 
 // Other function prototypes
-void graphBaro(boolean drawGrid);
-void graphHumidity(boolean drawGrid);
-void graphTemperature(boolean drawGrid);
+typedef enum
+{
+    GR_NULL,
+    GR_BARO,
+    GR_TEMP,
+    GR_HUMD
+} GRAPH_TYPE;
+typedef enum
+{
+    GR_0H = 0,
+    GR_6H = 36, 
+    GR_12H = 72,
+    GR_24H = 144
+} GRAPH_CNT;
 
-#define HIST_CNT (12 * 6) // every 10 min, 12 hrs total
-//#define HIST_CNT (24 * 6) // every 10 min, 24 hrs total
-extern CircularBuffer<uint16_t, HIST_CNT> cbBaro;
+// Call with drawGrid == true. The coordinate system will only be drawn once.
+void drawGraph(GRAPH_TYPE type, GRAPH_CNT count);
+void graphBaro(GRAPH_CNT count);
+void graphTemperature(GRAPH_CNT count);
+void graphHumidity(GRAPH_CNT count);
+void graphUpdateCurVal(GRAPH_TYPE type);
+
+#define HIST_CNT (24 * 6) // every 10 min, 24 hrs total
+extern CircularBuffer<int16_t, HIST_CNT> cbBaro;
 extern CircularBuffer<int16_t, HIST_CNT> cbHumd;
 extern CircularBuffer<int16_t, HIST_CNT> cbTemp;
