@@ -7,7 +7,7 @@
 // - Write main HTML status page including uptime and "on times"
 // - Sync to ntp if possible
 // - setpoint line on graphs should be conditional to MODE
-// - Up/down buttons scroll through 6/12/24 hrs on graphs
+
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -90,6 +90,7 @@ uint32_t compressorDelay = COMPRESSOR_DELAY; // in cooling and dh modes, wait 5 
                                              // it was shut off. Same delay at boot up of thermostat.
 uint32_t minRunTimeDelay = 0;                // Dehumidifier min runtime countdown
 int16_t *pSetPt = NULL;                      // Pointer to current setpoint based upon mode
+char *pSsid = NULL;                          // Pointer to booted SSID
 
 // The local variables that are backed up in EEPROM
 EEPROM_LOCAL_VARS loc;            // local working variables
@@ -101,9 +102,9 @@ uint32_t coolSeconds = 0;
 uint32_t dhSeconds = 0;
 
 // Function declarations
-float readTemperature();
-float readHumidity();
-float readPressure();
+inline float readTemperature();
+inline float readHumidity();
+inline float readPressure();
 void initBME280();
 void checkLocalVarChanges();
 void saveLocToEEPROM();
@@ -222,6 +223,12 @@ void setup()
 
     // Get time
     timeSetup();
+
+    // HACK IN A WAY TO STORE BME280 RE-INITS
+    if (loc.pad1 == UINT32_ERASED_VALUE)
+    {
+        loc.pad1 = 0;
+    }
 }
 
 // Main Arduino control loop
@@ -347,7 +354,7 @@ void loop()
                 cbTemp.push(TEMP_FLOAT_TO_INT(curTemp));
                 cbBaro.push(BARO_FLOAT_TO_INT(curBaro));
 
-                Serial.printf("t:%.2f, h:%.2f, b:%.3f\n", curTemp, curHumd, curBaro);
+//                Serial.printf("t:%.2f, h:%.2f, b:%.3f\n", curTemp, curHumd, curBaro);
 
                 // Update baro display indicator;
                 // must be called after capturing a new point.
@@ -482,12 +489,12 @@ void updateBaroRiseFall()
         baroDir = (diff3hr > 0) ? 1 : -1;
     }
 
-    //    Serial.printf("curBaro: %i, b10m: %i/%hi, b20m: %i/%hi, b3hr: %i/%hi, steady: %i, dir: %i\n",
-    //                  curBaroLatest,
-    //                  cbBaro[BARO_IDX_10MIN], diff10min,
-    //                  cbBaro[BARO_IDX_20MIN], diff20min,
-    //                  cbBaro[BARO_IDX_3HR], diff3hr,
-    //                  baroSteady, baroDir);
+    Serial.printf("curBaro: %i, b10m: %i/%hi, b20m: %i/%hi, b3hr: %i/%hi, steady<=%i, dir: %i\n",
+                  curBaroLatest,
+                  cbBaro[BARO_IDX_10MIN], diff10min,
+                  cbBaro[BARO_IDX_20MIN], diff20min,
+                  cbBaro[BARO_IDX_3HR], diff3hr,
+                  baroSteady, baroDir);
 }
 
 // This function is called by the renderer every 100 mS once the display is taken over.
@@ -614,7 +621,7 @@ void altDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
             oldEncVal = encoderValue;
         }
 
-        graphUpdateCurVal(GR_NULL);
+        graphUpdateCurVal(SN_NULL);
     }
 
     // Go to the menu when enter pressed
@@ -733,34 +740,79 @@ void initBME280()
     Serial.printf("BME280 initialized\n");
 }
 
-float readPressure()
+float readBme280(SENSOR_TYPE m)
 {
     float v;
-    while ((v = bme.readPressure()) == NAN)
+    int32_t readCnt = 3;
+    int32_t reinitCnt = 3;
+
+    // Re-init twice (see below)
+    while (reinitCnt--)
     {
-        initBME280();
-    }
-    return v;
+        // Read 3 times
+        while (readCnt--)
+        {
+            switch (m)
+            {
+            case SN_BARO:
+                v = bme.readPressure();
+                if ((v >= 30000.0) && (v <= 110000.0))
+                {
+                    return v;
+                }
+                break;
+
+            case SN_TEMP:
+                v = bme.readTemperature();
+                if ((v >= -40.0) && (v <= 85.0))
+                {
+                    return v;
+                }
+                break;
+
+            case SN_HUMD:
+                v = bme.readHumidity();
+                if ((v >= 0.0) && (v <= 100.0))
+                {
+                    return v;
+                }
+                break;
+
+            default:
+                break;
+            }
+
+            // Don't bother re-initing on the way out
+            if (reinitCnt)
+            {
+                // Re-init
+                initBME280();
+
+                // HACK IN A WAY TO CAPTURE RE-INITS
+                loc.pad1++;
+            }
+
+        } // readCnt
+
+    } // reinitCnt
+
+    Serial.println("Failed to read BME280!");
+    return 0.0;
 }
 
-float readHumidity()
+inline float readPressure() 
 {
-    float v;
-    while ((v = bme.readHumidity()) == NAN)
-    {
-        initBME280();
-    }
-    return v;
+    return readBme280(SN_BARO);
 }
 
-float readTemperature()
+inline float readHumidity()
 {
-    float v;
-    while ((v = bme.readTemperature()) == NAN)
-    {
-        initBME280();
-    }
-    return v;
+    return readBme280(SN_HUMD);
+}
+
+inline float readTemperature()
+{
+    return readBme280(SN_TEMP);
 }
 
 void heatControl()
@@ -928,7 +980,7 @@ void configEncoderForMode()
     // Encoder goes from 0 - 99 (ENC_MAX). Encoder is set to current set point
     switches.changeEncoderPrecision(ENC_MAX, pSetPt ? ENC_MAX - *pSetPt : 0);
 
-    Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
+//    Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
 }
 
 void shutDownPrevMode(bool force)
@@ -975,57 +1027,57 @@ void CALLBACK_FUNCTION ExitCallback(int id)
 // item has been changed, so we know when to save to EEPROM.
 void CALLBACK_FUNCTION ModeCallback(int id)
 {
-    int32_t val = menuModeEnum.getCurrentValue();
-    Serial.printf("CB - Mode: %d\n", val);
+//    int32_t val = menuModeEnum.getCurrentValue();
+//    Serial.printf("CB - Mode: %d\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION FanCallback(int id)
 {
-    int32_t val = menuFanEnum.getCurrentValue();
-    Serial.printf("CB - Fan: %d\n", val);
+//    int32_t val = menuFanEnum.getCurrentValue();
+//    Serial.printf("CB - Fan: %d\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION MinRunTimeCallback(int id)
 {
-    float val = menuMinRunTime.getAsFloatingPointValue();
-    Serial.printf("CB - DhMinT: %0.1f\n", val);
+//    float val = menuMinRunTime.getAsFloatingPointValue();
+//    Serial.printf("CB - DhMinT: %0.1f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION HumidityCalCallback(int id)
 {
-    float val = menuHumidityCal.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - DhCal: %0.2f\n", val);
+//    float val = menuHumidityCal.getLargeNumber()->getAsFloat();
+//    Serial.printf("CB - DhCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION HumdHysteresisCallback(int id)
 {
-    float val = menuHumdHysteresis.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - DhHys: %0.2f\n", val);
+//    float val = menuHumdHysteresis.getLargeNumber()->getAsFloat();
+//    Serial.printf("CB - DhHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION TempCalCallback(int id)
 {
-    float val = menuTemperatureCal.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - HeatCal: %0.2f\n", val);
+//    float val = menuTemperatureCal.getLargeNumber()->getAsFloat();
+//    Serial.printf("CB - HeatCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION HeatingHysteresisCallback(int id)
 {
-    float val = menuHeatingHysteresis.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - HeatHys: %0.2f\n", val);
+//    float val = menuHeatingHysteresis.getLargeNumber()->getAsFloat();
+//    Serial.printf("CB - HeatHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION CoolingHysteresisCallback(int id)
 {
-    float val = menuCoolingHysteresis.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - CoolHys: %0.2f\n", val);
+//    float val = menuCoolingHysteresis.getLargeNumber()->getAsFloat();
+//    Serial.printf("CB - CoolHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
@@ -1104,7 +1156,7 @@ void GatherSysInfo(bool unused)
     tft.printf("Startup count: %u\n", loc.powerCycleCnt);
 
     // SSID
-    tft.printf("SSID: %s\n", ssid);
+    tft.printf("SSID: %s\n", pSsid);
 
     // IP
     tft.println("IP:  " + WiFi.localIP().toString());
@@ -1115,8 +1167,12 @@ void GatherSysInfo(bool unused)
     // WiFi Strength
     tft.println("Signal Strength: " + WiFiSignal());
 
-    // FWV
-    tft.printf("FW Ver: %.1f\n", FW_VERSION);
+//    // FWV
+//    tft.printf("FW Ver: %.1f\n", FW_VERSION);
+
+    // HACK IN A WAY TO STORE BME280 RE-INITS
+    // BME280 forced re-inits
+    tft.printf("BME280 re-inits: %u\n", loc.pad1);
 }
 
 void CALLBACK_FUNCTION DisplaySysInfo(int id)
@@ -1205,20 +1261,15 @@ void CALLBACK_FUNCTION SafeShutdown(int id)
 
 void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id)
 {
-    float val = menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - BaroSteady: %0.4f\n", val);
+//    float val = menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat();
+//    Serial.printf("CB - BaroSteady: %0.4f\n", val);
     menuChg = TRUE;
-}
-
-void CALLBACK_FUNCTION BaroRapidLoLimitCallback(int id)
-{
-    Serial.printf("TODO: REMOVE!\n");
 }
 
 void CALLBACK_FUNCTION PressureCalCallback(int id)
 {
-    float val = menuPressureCal.getLargeNumber()->getAsFloat();
-    Serial.printf("CB - PressCal: %0.2f\n", val);
+//    float val = menuPressureCal.getLargeNumber()->getAsFloat();
+//    Serial.printf("CB - PressCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
@@ -1505,7 +1556,7 @@ void wifiSetup()
     {
         // EEPROM is empty, store fw credentials to EEPROM.
         // This is the one time occurance mentioned above.
-        Serial.println("Copy FW to EEPROM - first time");
+        Serial.println("Copy FW creds to EEPROM - first time");
 
         strncpy(loc.ssid, ssid, sizeof(loc.ssid) - 1);
         strncpy(loc.password, password, sizeof(loc.password) - 1);
@@ -1522,18 +1573,20 @@ void wifiSetup()
     {
         if (!digitalRead(UP_SWITCH))
         {
-            Serial.println("Copy FW to EEPROM - UP pressed");
+            Serial.println("Copy FW creds to EEPROM - UP pressed");
 
             // Copy to EEPROM (UPdate)
             strncpy(loc.ssid, ssid, sizeof(loc.ssid) - 1);
             strncpy(loc.password, password, sizeof(loc.password) - 1);
         }
         Serial.println("Using FW creds");
+        pSsid = (char *)ssid;
         WiFi.begin(ssid, password);
     }
     else
     {
         Serial.println("Using EEPROM creds");
+        pSsid = loc.ssid;
         WiFi.begin(loc.ssid, loc.password);
     }
 }

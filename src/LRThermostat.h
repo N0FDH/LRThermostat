@@ -89,11 +89,11 @@ extern String WiFiSignal();
 // Other function prototypes
 typedef enum
 {
-    GR_NULL,
-    GR_BARO,
-    GR_TEMP,
-    GR_HUMD
-} GRAPH_TYPE;
+    SN_NULL,
+    SN_BARO,
+    SN_TEMP,
+    SN_HUMD
+} SENSOR_TYPE;
 typedef enum
 {
     GR_0H = 0,
@@ -103,11 +103,22 @@ typedef enum
 } GRAPH_CNT;
 
 // Call with drawGrid == true. The coordinate system will only be drawn once.
-void drawGraph(GRAPH_TYPE type, GRAPH_CNT count);
-void graphBaro(GRAPH_CNT count);
-void graphTemperature(GRAPH_CNT count);
-void graphHumidity(GRAPH_CNT count);
-void graphUpdateCurVal(GRAPH_TYPE type);
+void graphUpdateCurVal(SENSOR_TYPE type);
+void drawGraph(SENSOR_TYPE type, GRAPH_CNT count);
+inline void graphBaro(GRAPH_CNT count)
+{
+    drawGraph(SN_BARO, count);
+}
+
+inline void graphTemperature(GRAPH_CNT count)
+{
+    drawGraph(SN_TEMP, count);
+}
+
+inline void graphHumidity(GRAPH_CNT count)
+{
+    drawGraph(SN_HUMD, count);
+}
 
 #define HIST_CNT (24 * 6) // every 10 min, 24 hrs total
 extern CircularBuffer<int16_t, HIST_CNT> cbBaro;

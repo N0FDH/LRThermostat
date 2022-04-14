@@ -4,7 +4,7 @@
 // as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
 //
 // This function provides a Cartesian graph implementation.
-// Originally written by Kris Kasprzak:
+// The original "graph()" function was written by Kris Kasprzak:
 // https://github.com/KrisKasprzak/Graphing
 
 #include <Arduino.h>
@@ -110,26 +110,11 @@ void drawSetpointLine(TFT_eSPI &d,
 
 //*****************************************************************************
 
-void graphBaro(GRAPH_CNT count)
+void graphUpdateCurVal(SENSOR_TYPE type)
 {
-    drawGraph(GR_BARO, count);
-}
+    static SENSOR_TYPE lastType = SN_NULL;
 
-void graphTemperature(GRAPH_CNT count)
-{
-    drawGraph(GR_TEMP, count);
-}
-
-void graphHumidity(GRAPH_CNT count)
-{
-    drawGraph(GR_HUMD, count);
-}
-
-void graphUpdateCurVal(GRAPH_TYPE type)
-{
-    static GRAPH_TYPE lastType = GR_NULL;
-
-    if (type == GR_NULL)
+    if (type == SN_NULL)
     {
         type = lastType;
     }
@@ -140,20 +125,20 @@ void graphUpdateCurVal(GRAPH_TYPE type)
 
     switch (type)
     {
-    case GR_BARO:
+    case SN_BARO:
 
         tft.setTextColor(DATA_COLOR, BG_COLOR);
         tft.drawFloat(curBaro, 2, CUR_VAL_X, CUR_VAL_Y, 1);
         break;
 
-    case GR_TEMP:
+    case SN_TEMP:
 
         tft.setTextColor(DATA_COLOR, BG_COLOR);
         tft.drawNumber(round(curTemp), (CUR_VAL_X + 10), CUR_VAL_Y, 1);
         tft.drawString("o", (CUR_VAL_X + 10) + 12, CUR_VAL_Y - 3, 1);
         break;
 
-    case GR_HUMD:
+    case SN_HUMD:
 
         tft.setTextColor(DATA_COLOR, BG_COLOR);
         tft.drawNumber(round(curHumd), CUR_VAL_X, CUR_VAL_Y, 1);
@@ -165,7 +150,7 @@ void graphUpdateCurVal(GRAPH_TYPE type)
     }
 }
 
-void drawGraph(GRAPH_TYPE type, GRAPH_CNT count)
+void drawGraph(SENSOR_TYPE type, GRAPH_CNT count)
 {
     static GRAPH_CNT defCount = GR_12H;
 
@@ -175,32 +160,6 @@ void drawGraph(GRAPH_TYPE type, GRAPH_CNT count)
     uint32_t yDiv = 100;
     uint32_t low = 0;
     uint32_t high = 0;
-
-    switch (type)
-    {
-    case GR_BARO:
-        pData = &cbBaro;
-        pTitle = "  Baro Pres";
-        digits = 2;
-        yDiv = 1000;
-        low = cbBaro[0];
-        break;
-
-    case GR_TEMP:
-        pData = &cbTemp;
-        pTitle = " Temperature";
-        low = loc.heatSetPt * 100; // start with setpoint to be sure it is included
-        break;
-
-    case GR_HUMD:
-        pData = &cbHumd;
-        pTitle = "  Humidity";
-        low = loc.dhSetPt * 100; // start with setpoint to be sure it is included
-        break;
-
-    default:
-        break;
-    }
 
     // Save last count so we know what to draw if we get a '0' as count
     if (count == GR_0H)
@@ -212,10 +171,57 @@ void drawGraph(GRAPH_TYPE type, GRAPH_CNT count)
         defCount = count;
     }
 
-    // Scan data to get its range
-    int32_t start = pData->size() >= count ? pData->size() - count : 0;
-    high = low;
+    // Set up pointer to propper data set
+    switch (type)
+    {
+    case SN_BARO:
+        pData = &cbBaro;
+        break;
 
+    case SN_TEMP:
+        pData = &cbTemp;
+        break;
+
+    case SN_HUMD:
+        pData = &cbHumd;
+        break;
+
+    default:
+        break;
+    }
+
+    // Determine start point in data
+    int32_t start = pData->size() >= count ? pData->size() - count : 0;
+
+    // Set up other mode specific items
+    switch (type)
+    {
+    case SN_BARO:
+        pData = &cbBaro;
+        pTitle = "  Baro Pres";
+        digits = 2;
+        yDiv = 1000;
+        low = cbBaro[start];
+        break;
+
+    case SN_TEMP:
+        pData = &cbTemp;
+        pTitle = " Temperature";
+        low = loc.heatSetPt * 100; // start with setpoint to be sure it is included
+        break;
+
+    case SN_HUMD:
+        pData = &cbHumd;
+        pTitle = "  Humidity";
+        low = loc.dhSetPt * 100; // start with setpoint to be sure it is included
+        break;
+
+    default:
+        break;
+    }
+
+    // Scan data to get its range
+    high = low;
     for (int32_t n = start; n < pData->size(); n++)
     {
         uint32_t tmp = (*pData)[n];
@@ -236,19 +242,19 @@ void drawGraph(GRAPH_TYPE type, GRAPH_CNT count)
 
     switch (type)
     {
-    case GR_BARO:
+    case SN_BARO:
         // Note: these round up/downs are using integer math then floating for final division
         ylo = ((float_t)(low / 100)) / 10;         // round down to nearest 0.100
         yhi = ((float_t)((high + 99) / 100)) / 10; // round up to nearest 0.100
         break;
 
-    case GR_TEMP:
+    case SN_TEMP:
         // Note: these round up/downs are using integer math exclusively
         ylo = low / 500 * 5;          // round down to nearest 5
         yhi = (high + 499) / 500 * 5; // round up to nearest 5
         break;
 
-    case GR_HUMD:
+    case SN_HUMD:
         // Note: these round up/downs are using integer math exclusively
         ylo = low / 1000 * 10;          // round down to nearest 10
         yhi = (high + 999) / 1000 * 10; // round up to nearest 10
@@ -282,11 +288,11 @@ void drawGraph(GRAPH_TYPE type, GRAPH_CNT count)
               digits);                   // digits
     }
 
-    if (type != GR_BARO)
+    if (type != SN_BARO)
     {
         // Draw the setpoint
         drawSetpointLine(tft,
-                         type == GR_TEMP ? (float_t)loc.heatSetPt : (float_t)loc.dhSetPt, // Set point
+                         type == SN_TEMP ? (float_t)loc.heatSetPt : (float_t)loc.dhSetPt, // Set point
                          GRAPH_LL_X, GRAPH_LL_Y,                                          // lower left corner of graph
                          WIDTH_X, HEIGHT_Y,                                               // width, height
                          XLOW, XHI,                                                       // xlow, xhi
@@ -460,188 +466,3 @@ void drawSetpointLine(TFT_eSPI &d,
         d.drawLine(ox + 1, oy, x + 1, y, tcolor);
     }
 }
-
-//=======================================================================================================
-// OLD ROUTINES FOR REFERENCE
-//=======================================================================================================
-#if 0
-
-// Call with drawGrid == true. The coordinate system will only be drawn once.
-void graphBaro(boolean drawGrid)
-{
-    uint32_t low = cbBaro[0];
-    uint32_t high = low;
-
-    // Scan data to get its range
-    for (int32_t n = 0; n < cbBaro.size(); n++)
-    {
-        uint32_t tmp = cbBaro[n];
-
-        if (tmp < low)
-        {
-            low = tmp;
-        }
-        else if (tmp > high)
-        {
-            high = tmp;
-        }
-    }
-
-    // Calculate data range for graph
-    // Note: these round up/downs are using integer math then floating for final division
-    float_t ylo = ((float_t)(low / 100)) / 10;         // round down to nearest 0.100
-    float_t yhi = ((float_t)((high + 99) / 100)) / 10; // round up to nearest 0.100
-
-    tft.fillScreen(BLACK);
-
-    for (int32_t x = 0; x < cbBaro.size(); x++)
-    {
-        float_t y = ((float_t)(cbBaro[x])) / 1000;
-
-        graph(tft,
-              (float_t)x, y,             // data point
-              GRAPH_LL_X, GRAPH_LL_Y,    // lower left corner of graph
-              WIDTH_X, HEIGHT_Y,         // width, height
-              XLOW, XHI, XINC,           // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
-              "  Baro Pres", "", "",     // title, x-label, y-label
-              GRID_COLOR,                // grid line color
-              AXIS_COLOR,                // axis lines color
-              DATA_COLOR,                // plotted data color
-              TEXT_COLOR,                // text color
-              BG_COLOR,                  // background color
-              drawGrid,                  // redraw flag
-              2);                        // digits
-    }
-
-    // Finally, add current val
-    tft.setTextColor(DATA_COLOR, BG_COLOR);
-    tft.drawFloat(curBaro, 2, CUR_VAL_X, CUR_VAL_Y, 1);
-}
-
-// Call with drawGrid == true. The coordinate system will only be drawn once.
-void graphHumidity(boolean drawGrid)
-{
-    uint32_t low = loc.dhSetPt * 100; // start with setpoint to be sure it is included
-    uint32_t high = low;
-
-    // Scan data to get its range
-    for (int32_t n = 0; n < cbHumd.size(); n++)
-    {
-        uint32_t tmp = cbHumd[n];
-
-        if (tmp < low)
-        {
-            low = tmp;
-        }
-        else if (tmp > high)
-        {
-            high = tmp;
-        }
-    }
-
-    // Calculate data range for graph
-    // Note: these round up/downs are using integer math exclusively
-    float_t ylo = low / 1000 * 10;          // round down to nearest 10
-    float_t yhi = (high + 999) / 1000 * 10; // round up to nearest 10
-
-    tft.fillScreen(BLACK);
-
-    for (int32_t x = 0; x < cbHumd.size(); x++)
-    {
-        float_t y = ((float_t)cbHumd[x])/100;
-
-        graph(tft,
-              (float_t)x, y,             // data point
-              GRAPH_LL_X, GRAPH_LL_Y,    // lower left corner of graph
-              WIDTH_X, HEIGHT_Y,         // width, height
-              XLOW, XHI, XINC,           // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
-              "  Humidity", "", "",      // title, x-label, y-label
-              GRID_COLOR,                // grid line color
-              AXIS_COLOR,                // axis lines color
-              DATA_COLOR,                // plotted data color
-              TEXT_COLOR,                // text color
-              BG_COLOR,                  // background color
-              drawGrid,                  // redraw flag
-              0);                        // digits
-    }
-
-    // Draw the setpoint
-    drawSetpointLine(tft,
-                     (float_t)loc.dhSetPt,   // Set point
-                     GRAPH_LL_X, GRAPH_LL_Y, // lower left corner of graph
-                     WIDTH_X, HEIGHT_Y,      // width, height
-                     XLOW, XHI,              // xlow, xhi
-                     ylo, yhi,               // ylow, yhi
-                     SETPT_COLOR);           // setpoint line color
-
-    // Finally, add current val
-    tft.setTextColor(DATA_COLOR, BG_COLOR);
-    tft.drawNumber(round(curHumd), CUR_VAL_X, CUR_VAL_Y, 1);
-    tft.drawString("%", CUR_VAL_X + 12, CUR_VAL_Y, 1);
-}
-
-// Call with drawGrid == true. The coordinate system will only be drawn once.
-void graphTemperature(boolean drawGrid)
-{
-    uint32_t low = loc.heatSetPt * 100; // start with setpoint to be sure it is included
-    uint32_t high = low;
-
-    // Scan data to get its range
-    for (int32_t n = 0; n < cbTemp.size(); n++)
-    {
-        uint32_t tmp = cbTemp[n];
-
-        if (tmp < low)
-        {
-            low = tmp;
-        }
-        else if (tmp > high)
-        {
-            high = tmp;
-        }
-    }
-
-    // Calculate data range for graph
-    // Note: these round up/downs are using integer math exclusively
-    float_t ylo = low / 500 * 5;        // round down to nearest 5
-    float_t yhi = (high + 499) / 500 * 5; // round up to nearest 5
-
-    tft.fillScreen(BLACK);
-
-    for (int32_t x = 0; x < cbTemp.size(); x++)
-    {
-        float_t y = ((float_t)cbTemp[x])/100;
-
-        graph(tft,
-              (float_t)x, y,             // data point
-              GRAPH_LL_X, GRAPH_LL_Y,    // lower left corner of graph
-              WIDTH_X, HEIGHT_Y,         // width, height
-              XLOW, XHI, XINC,           // xlow, xhi, xinc
-              ylo, yhi, (yhi - ylo) / 5, // ylow, yhi, yinc
-              " Temperature", "", "",    // title, x-label, y-label
-              GRID_COLOR,                // grid line color
-              AXIS_COLOR,                // axis lines color
-              DATA_COLOR,                // plotted data color
-              TEXT_COLOR,                // text color
-              BG_COLOR,                  // background color
-              drawGrid,                  // redraw flag
-              0);                        // digits
-    }
-
-    // Draw the setpoint
-    drawSetpointLine(tft,
-                     (float_t)loc.heatSetPt, // Set point
-                     GRAPH_LL_X, GRAPH_LL_Y, // lower left corner of graph
-                     WIDTH_X, HEIGHT_Y,      // width, height
-                     XLOW, XHI,              // xlow, xhi
-                     ylo, yhi,               // ylow, yhi
-                     SETPT_COLOR);           // setpoint line color
-
-    // Finally, add current val
-    tft.setTextColor(DATA_COLOR, BG_COLOR);
-    tft.drawNumber(round(curTemp), (CUR_VAL_X + 10), CUR_VAL_Y, 1);
-    tft.drawString("o", (CUR_VAL_X + 10) + 12, CUR_VAL_Y - 3, 1);
-}
-#endif
