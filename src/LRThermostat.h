@@ -10,6 +10,7 @@
 #define LORENS_PREFERENCES 0
 
 // Hardware definitions
+#define SCOPE_PIN 14        // GPIO
 #define FAN_RELAY 16        // GPIO
 #define HEAT_RELAY 17       // GPIO
 #define AC_RELAY 18         // GPIO
@@ -30,6 +31,9 @@
 #define TRUE 1
 #define OFF FALSE
 #define ON TRUE
+
+// Scope debug pin
+#define SCOPE(a) digitalWrite(SCOPE_PIN, ((a) ? (ON) : (OFF)))
 
 extern float curTemp; // BME280
 extern float curHumd; // BME280

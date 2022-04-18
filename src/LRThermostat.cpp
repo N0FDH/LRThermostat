@@ -218,6 +218,10 @@ void setup()
     pinMode(DOWN_SWITCH, INPUT_PULLUP);
     pinMode(ENTER_SWITCH, INPUT_PULLUP);
 
+    // Scope debug pin
+    pinMode(SCOPE_PIN, OUTPUT);
+    SCOPE(LOW);
+
     // Wifi
     wifiSetup();
 
