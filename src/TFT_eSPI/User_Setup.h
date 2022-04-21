@@ -8,6 +8,7 @@
 //   run without the need to make any more changes for a particular hardware setup!
 //   Note that some sketches are designed for a particular TFT pixel width/height
 
+#include "../../../../src/LRTVersion.h"
 
 // ##################################################################################
 //
@@ -89,7 +90,7 @@
 
 // #define ST7735_INITB
 // #define ST7735_GREENTAB
- #define ST7735_GREENTAB2
+// #define ST7735_GREENTAB2
 // #define ST7735_GREENTAB3
 // #define ST7735_GREENTAB128    // For 128 x 128 display
 // #define ST7735_GREENTAB160x80 // For 160 x 80 display (BGR, inverted, 26 offset)

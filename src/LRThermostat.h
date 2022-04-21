@@ -3,14 +3,17 @@
 // terms of the Do What The Fuck You Want To Public License, Version 2,
 // as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
 
-#include <CircularBuffer.h>
+#ifndef LRTHERMOSTAT_H
+#define LRTHERMOSTAT_H
 
-#define FW_VERSION 1.2
-#define PCB_VERSION 0 // 0 = prototype, 1 = 1st main release, etc
+#include <CircularBuffer.h>
+#include "LRTVersion.h"
+
+// Miscellaneous
 #define LORENS_PREFERENCES 0
 
 // Hardware definitions
-#define SCOPE_PIN 14        // GPIO
+#define SCOPE_PIN 27        // GPIO
 #define FAN_RELAY 16        // GPIO
 #define HEAT_RELAY 17       // GPIO
 #define AC_RELAY 18         // GPIO
@@ -128,3 +131,5 @@ inline void graphHumidity(GRAPH_CNT count)
 extern CircularBuffer<int16_t, HIST_CNT> cbBaro;
 extern CircularBuffer<int16_t, HIST_CNT> cbHumd;
 extern CircularBuffer<int16_t, HIST_CNT> cbTemp;
+
+#endif // LRTHERMOSTAT_H
