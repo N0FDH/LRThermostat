@@ -6,14 +6,17 @@
 #ifndef LRTVERSION_H
 #define LRTVERSION_H
 
-// Uncomment only ONE of the following. This selects what type of hardware you
-// are targeting.
-
-//#define PROTOTYPE
+// Uncomment only ONE of the following.
+// This selects what type of hardware you are targeting.
+//============================
+#define PROTOTYPE
 //#define PCB_V1_GREENTAB
-#define PCB_V1_REDTAB
+//#define PCB_V1_REDTAB
+//============================
 
+//==============================================================================
 // DON'T CHANGE ANYTHING BELOW THIS LINE
+//==============================================================================
 
 #ifdef PROTOTYPE
 #define PCB_VERSION 0 // 0 = prototype, 1 = 1st main release, etc
