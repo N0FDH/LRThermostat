@@ -9,9 +9,9 @@
 // Uncomment only ONE of the following. This selects what type of hardware you
 // are targeting.
 
-#define PROTOTYPE
+//#define PROTOTYPE
 //#define PCB_V1_GREENTAB
-//#define PCB_V1_REDTAB
+#define PCB_V1_REDTAB
 
 // DON'T CHANGE ANYTHING BELOW THIS LINE
 
@@ -27,7 +27,7 @@
 
 #ifdef PCB_V1_REDTAB
 #define PCB_VERSION 1 // 0 = prototype, 1 = 1st main release, etc
-#define ST7735_REDTAB
+#define ST7735_REDTAB // Currently only Randy's humidistat uses this display
 #endif
 
 // Miscellaneous
