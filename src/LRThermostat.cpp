@@ -1171,8 +1171,8 @@ void GatherSysInfo(bool unused)
     // WiFi Strength
     tft.println("Signal Strength: " + WiFiSignal());
 
-//    // FWV
-//    tft.printf("FW Ver: %.1f\n", FW_VERSION);
+    // FWV
+    tft.printf("PCB-FW: %s-%s\n", PCB_DISP, FW_VERSION);
 
     // HACK IN A WAY TO STORE BME280 RE-INITS
     // BME280 forced re-inits
