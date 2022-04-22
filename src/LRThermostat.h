@@ -9,9 +9,6 @@
 #include <CircularBuffer.h>
 #include "LRTVersion.h"
 
-// Miscellaneous
-#define LORENS_PREFERENCES 0
-
 // Hardware definitions
 #define SCOPE_PIN 27        // GPIO
 #define FAN_RELAY 16        // GPIO

@@ -101,6 +101,17 @@ uint32_t heatSeconds = 0;
 uint32_t coolSeconds = 0;
 uint32_t dhSeconds = 0;
 
+// setting PWM properties
+const uint32_t pwmFreq = 5000;
+const uint32_t pwmChannel = 0;
+const uint32_t pwmResolution = 8;
+// This a lot of trial and error, but comes out pretty good 10-100% in 10% increments
+const uint8_t pwmDutyCycle[] = {1, 3, 7, 13, 23, 40, 69, 120, 185, 255};
+#define PWM_MAX (sizeof(pwmDutyCycle) - 1)
+int32_t pwmCount = PWM_MAX;
+bool pwmDirUp = false;
+#define PWM_TEST 0
+
 // Function declarations
 inline float readTemperature();
 inline float readHumidity();
@@ -209,14 +220,15 @@ void setup()
     pinMode(AC_RELAY, OUTPUT);
     COOL(OFF);
 
-    // Set ST7735 back light high for now
-    pinMode(BACK_LIGHT, OUTPUT);
-    digitalWrite(BACK_LIGHT, HIGH);
-
     // Switches
     pinMode(UP_SWITCH, INPUT_PULLUP);
     pinMode(DOWN_SWITCH, INPUT_PULLUP);
     pinMode(ENTER_SWITCH, INPUT_PULLUP);
+
+    // configure LED PWM functionality
+    ledcSetup(pwmChannel, pwmFreq, pwmResolution);
+    ledcAttachPin(BACK_LIGHT, pwmChannel);
+    ledcWrite(pwmChannel, pwmDutyCycle[PWM_MAX]); // max brightness
 
     // Scope debug pin
     pinMode(SCOPE_PIN, OUTPUT);
@@ -382,6 +394,30 @@ void loop()
 
                 // Note: the loc vars get committed to EPROM below
             }
+
+#if PWM_TEST
+            // vary brightness up and down
+            if (pwmDirUp)
+            {
+                pwmCount++;
+                if (pwmCount > PWM_MAX)
+                {
+                    pwmCount = PWM_MAX - 1;
+                    pwmDirUp = 0;
+                }
+            }
+            else // pwdDirUp == 0
+            {
+                pwmCount--;
+                if (pwmCount < 0)
+                {
+                    pwmCount = 1;
+                    pwmDirUp = 1;
+                }
+            }
+            ledcWrite(pwmChannel, pwmDutyCycle[pwmCount]);
+#endif
+
         } // end of 1 sec loop
 
         // Save local vars if inactivity timeout
@@ -1482,13 +1518,8 @@ void dispFanOff()
 //****************************************** Baro *********************************************
 void dispBaro()
 {
-#if LORENS_PREFERENCES
-    const int32_t digits = 1;
-    const int32_t x = 97;
-#else
     const int32_t digits = 2;
     const int32_t x = 85;
-#endif
     const int32_t y = 108;
 
     // Display the directional arrow
