@@ -9,9 +9,9 @@
 // Uncomment only ONE of the following.
 // This selects what type of hardware you are targeting.
 //============================
-//#define PROTOTYPE
+#define PROTOTYPE
 //#define PCB_V1_GREENTAB
-#define PCB_V1_REDTAB
+//#define PCB_V1_REDTAB
 //============================
 
 //==============================================================================
@@ -37,6 +37,6 @@
 #endif
 
 // Miscellaneous
-#define FW_VERSION "1.3"
+#define FW_VERSION "1.4"
 
 #endif // LRTVERSION_H

@@ -1,4 +1,5 @@
-// Some of the following web server implemetation and HTML was derived from a project by David Bird, whose license is as follows:
+// Some of the following web server implemetation and HTML was derived from a project by David Bird,
+// https://github.com/G6EJD/ESP-SMART-Thermostat, whose license is as follows:
 /*
   This software, the ideas and concepts is Copyright (c) David Bird 2020
   All rights to this software are reserved.
@@ -19,26 +20,32 @@
 */
 
 /*
-** BASIC STATUS PAGE OUTPUT FORMAT (4x18 table)
+** BASIC STATUS PAGE OUTPUT FORMAT (4x23 table)
 **
 *1*                    Temperature       Humidity       Pressure
 *2*                        65*             34%         28.74 inHg
 *3*
-*4* current mode	      heat
-*5* current state	       on
-*6* fan state		      auto
-*7*
-*8*                        Heat            Cool         Dehumidify
-*9* setpoint	           66*		       70*		       55%
-*0* hysteresis(+/-)	     0.5/0.5*	     0.5/0.5*	       10/0%
-*1* usage**		        18:32:04	     18:32:04	     18:32:04
-*2* calibration           -6.0             -6.0             +10
+*4* calibration           -6.0            +5.0             +1.4
+*5* current mode	      heat
+*6* current state	       on
+*7* fan state		      auto
+*8*
+*9*                        Heat            Cool         Dehumidify
+*0* setpoint	           66*		       70*		       55%
+*1* hysteresis(+/-)	     0.5/0.5*	     0.5/0.5*	       10/0%
+*2* usage**		        18:32:04	     18:32:04	     18:32:04
 *3* min run time			                               30 min
 *4*
 *5* **usage reset		3/4/22 18:32:04
-*6* boot time		    3/4/22 18:32:04
+*6* Uptime  		    56:18:32:04
 *7* boot count		    24
 *8* FW version		    1.0.0
+*9* SSID                MyCharterWhateverTheHell
+*0* IP                  192.168.0.132
+*1* MAC                 01:23:45:67:89:AB
+*2* Signal              71%
+*3* BME280 resets       37
+*4*
 */
 
 #include <ESPAsyncWebServer.h>
@@ -139,22 +146,39 @@ void Homepage()
         break;
     }
 
+    // get rid of compiler warning
+    setPt = setPt;
+
     append_HTML_header(20);
-    webpage += "<h2>Smart Thermostat Status</h2><br>";
-    //    webpage += "<div class='numberCircle'><span class=" + String((RelayState == "ON" ? "'on'>" : "'off'>")) + String(Temperature, 1) + "&deg;</span></div><br><br><br>";
+    webpage += "<h2>LRThermostat Status</h2><br>";
+    //------------------------------------
     webpage += "<table class='centre'>";
+    //------------------------------------
     webpage += "<tr>";
     webpage += "<td>Temperature</td>";
     webpage += "<td>Humidity</td>";
-    webpage += "<td>Target Temperature</td>";
-    webpage += "<td>Thermostat Status</td>";
-    webpage += "<td>Schedule Status</td>";
+    webpage += "<td>Barometric Pres.</td>";
+    webpage += "<td>Mode</td>";
+    webpage += "<td>State</td>";
+    webpage += "<td>Fan</td>";
     webpage += "</tr>";
+    //------------------------------------
     webpage += "<tr>";
-    webpage += "<td class='large'>" + String(curTemp, 1) + "&deg;</td>";
-    webpage += "<td class='large'>" + String(curHumd, 0) + "%</td>";
-    webpage += "<td class='large'>" + String((float)setPt, 1) + "&deg;</td>";
+    webpage += "<td class='medium'>" + String(curTemp, 0) + "&deg;</td>";
+    webpage += "<td class='medium'>" + String(curHumd, 0) + "%</td>";
+    webpage += "<td class='medium'>" + String(curBaro, 2) + " in</td>";
+    //    webpage += "<td class='large'>" + String((float)setPt, 1) + "&deg;</td>";
+    webpage += "<td class='medium'>"
+               "Heat"
+               "</td>";
+    webpage += "<td class='medium'>"
+               "On"
+               "</td>";
+    webpage += "<td class='medium'>"
+               "Auto"
+               "</td>";
     webpage += "</tr>";
+    //------------------------------------
     webpage += "</table>";
     webpage += "<br>";
     append_HTML_footer();
@@ -167,11 +191,9 @@ void append_HTML_header(bool refreshMode)
     webpage += "<head>";
     webpage += "<title>" + sitetitle + "</title>";
     webpage += "<meta charset='UTF-8'>";
-    if (refreshMode)
-        webpage += "<meta http-equiv='refresh' content='60'>"; // 5-secs refresh time, test needed to prevent auto updates repeating some commands
-                                                               //  webpage += "<script src=\"https://code.jquery.com/jquery-3.2.1.min.js\"></script>";
+    webpage += "<meta http-equiv='refresh' content='60'>";
     webpage += "<style>";
-    webpage += "body             {width:68em;margin-left:auto;margin-right:auto;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:blue;background-color:#e1e1ff;text-align:center;}";
+    webpage += "body             {width:30em;margin-left:auto;margin-right:auto;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:blue;background-color:white;text-align:center;}";
     webpage += ".centre          {margin-left:auto;margin-right:auto;}";
     webpage += "h2               {margin-top:0.3em;margin-bottom:0.3em;font-size:1.4em;}";
     webpage += "h3               {margin-top:0.3em;margin-bottom:0.3em;font-size:1.2em;}";
@@ -190,24 +212,12 @@ void append_HTML_header(bool refreshMode)
     webpage += ".ps              {font-size:0.7em;padding:0;margin:0}";
     webpage += "#outer           {width:100%;display:flex;justify-content:center;}";
     webpage += "footer           {padding:0.08em;background-color:cyan;font-size:1.1em;}";
-    webpage += ".numberCircle    {border-radius:50%;width:2.7em;height:2.7em;border:0.11em solid blue;padding:0.2em;color:blue;text-align:center;font-size:3em;";
-    webpage += "                  display:inline-flex;justify-content:center;align-items:center;}";
-    webpage += ".wifi            {padding:3px;position:relative;top:1em;left:0.36em;}";
-    webpage += ".wifi, .wifi:before {display:inline-block;border:9px double transparent;border-top-color:currentColor;border-radius:50%;}";
-    webpage += ".wifi:before     {content:'';width:0;height:0;}";
     webpage += "</style></head>";
     webpage += "<body>";
     webpage += "<div class='topnav'>";
     webpage += "<a href='/'>Status</a>";
-    webpage += "<a href='graphs'>Graph</a>";
-    webpage += "<a href='timer'>Schedule</a>";
-    webpage += "<a href='setup'>Setup</a>";
-    webpage += "<a href='help'>Help</a>";
-    webpage += "<a href=''></a>";
-    webpage += "<a href=''></a>";
-    webpage += "<a href=''></a>";
-    webpage += "<a href=''></a>";
-    webpage += "<div class='wifi'/></div><span>" + WiFiSignal() + "</span>";
+    webpage += "<a href='graphs'>Graphs</a>";
+    webpage += "<a href='sysInfo'>System Info</a>";
     webpage += "</div><br>";
 }
 //#########################################################################################

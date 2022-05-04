@@ -113,10 +113,8 @@ bool pwmDirUp = false;
 #define PWM_TEST 0
 
 // Function declarations
-inline float readTemperature();
-inline float readHumidity();
-inline float readPressure();
-void initBME280();
+void initBme280();
+void readBme280(float_t *pP, float_t *pT, float_t *pH);
 void checkLocalVarChanges();
 void saveLocToEEPROM();
 void saveMenuToEEPROM();
@@ -179,7 +177,7 @@ void setup()
     renderer.setResetCallback(resetCallback);
 
     // Main sensor setup & initialization
-    initBME280();
+    initBme280();
 
     // Load initial menu values
     menuMgr.load(MENU_MAGIC_KEY);
@@ -736,7 +734,10 @@ void loadMenuChanges()
 // achieved after several iterations of the filter.
 void readSensors()
 {
+    SCOPE(1);
+
     static bool readSensorsInit = FALSE;
+    float p, t, h;
 
     // Create exponential filters with a weight of 10%
     static ExponentialFilter<float> tempFilter(10, 0);
@@ -746,29 +747,31 @@ void readSensors()
     if (readSensorsInit == FALSE)
     {
         // Throw out first reading
-        readTemperature();
-        readHumidity();
-        readPressure();
+        readBme280(&p, &t, &h);
 
         // Read a second time to initialize the filter
-        tempFilter.SetCurrent(readTemperature());
-        humdFilter.SetCurrent(readHumidity());
-        baroFilter.SetCurrent(readPressure());
+        readBme280(&p, &t, &h);
+        tempFilter.SetCurrent(t);
+        humdFilter.SetCurrent(h);
+        baroFilter.SetCurrent(p);
         readSensorsInit = TRUE;
     }
 
     // Run the filter
-    tempFilter.Filter(readTemperature());
-    humdFilter.Filter(readHumidity());
-    baroFilter.Filter(readPressure());
+    readBme280(&p, &t, &h);
+    tempFilter.Filter(t);
+    humdFilter.Filter(h);
+    baroFilter.Filter(p);
 
     // Extract and post-process the readings
     curTemp = (tempFilter.Current() * 1.8) + 32 + tempCal;
     curHumd = humdFilter.Current() + humdCal;
     curBaro = (baroFilter.Current() / 3386.39) + baroCal;
+
+    SCOPE(0);
 }
 
-void initBME280()
+void initBme280()
 {
     if (!bme.begin(0x76))
     {
@@ -780,9 +783,8 @@ void initBME280()
     Serial.printf("BME280 initialized\n");
 }
 
-float readBme280(SENSOR_TYPE m)
+void readBme280(float_t *pP, float_t *pT, float_t *pH)
 {
-    float v;
     int32_t readCnt = 3;
     int32_t reinitCnt = 3;
 
@@ -792,44 +794,24 @@ float readBme280(SENSOR_TYPE m)
         // Read 3 times
         while (readCnt--)
         {
-            switch (m)
+            bme.readAllSensors(pP, pT, pH);
+            if ((*pP < 30000.0) || (*pP > 110000.0) ||
+                (*pT < -40.0) || (*pT > 85.0) ||
+                (*pH < 0.0) || (*pH > 100.0))
             {
-            case SN_BARO:
-                v = bme.readPressure();
-                if ((v >= 30000.0) && (v <= 110000.0))
+                // Don't bother re-initing on the way out
+                if (reinitCnt)
                 {
-                    return v;
-                }
-                break;
+                    // Re-init
+                    initBme280();
 
-            case SN_TEMP:
-                v = bme.readTemperature();
-                if ((v >= -40.0) && (v <= 85.0))
-                {
-                    return v;
+                    // HACK IN A WAY TO CAPTURE RE-INITS
+                    loc.pad1++;
                 }
-                break;
-
-            case SN_HUMD:
-                v = bme.readHumidity();
-                if ((v >= 0.0) && (v <= 100.0))
-                {
-                    return v;
-                }
-                break;
-
-            default:
-                break;
             }
-
-            // Don't bother re-initing on the way out
-            if (reinitCnt)
+            else
             {
-                // Re-init
-                initBME280();
-
-                // HACK IN A WAY TO CAPTURE RE-INITS
-                loc.pad1++;
+                return;
             }
 
         } // readCnt
@@ -837,22 +819,7 @@ float readBme280(SENSOR_TYPE m)
     } // reinitCnt
 
     Serial.println("Failed to read BME280!");
-    return 0.0;
-}
-
-inline float readPressure() 
-{
-    return readBme280(SN_BARO);
-}
-
-inline float readHumidity()
-{
-    return readBme280(SN_HUMD);
-}
-
-inline float readTemperature()
-{
-    return readBme280(SN_TEMP);
+    return;
 }
 
 void heatControl()
@@ -1202,7 +1169,7 @@ void GatherSysInfo(bool unused)
     tft.println("IP:  " + WiFi.localIP().toString());
 
     // MAC
-    tft.println("MAC: " + WiFi.macAddress());
+//    tft.println("MAC: " + WiFi.macAddress());
 
     // WiFi Strength
     tft.println("Signal Strength: " + WiFiSignal());
