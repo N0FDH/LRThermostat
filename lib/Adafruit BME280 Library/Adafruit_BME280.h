@@ -291,9 +291,11 @@ protected:
   int32_t compTemperature(int32_t adc_T);
   int32_t compPressure(int32_t adc_P);
   int32_t compHumidity(int32_t adc_H);
-  uint32_t BME280_compensate_H_int32(int32_t adc_H);
-  uint32_t BME280_compensate_P_int64(int32_t adc_P);
-  int32_t BME280_compensate_T_int32(int32_t adc_T);
+
+  // Experimental -- these don't work correctly at this time
+  // uint32_t BME280_compensate_H_int32(int32_t adc_H);
+  // uint32_t BME280_compensate_P_int64(int32_t adc_P);
+  // int32_t BME280_compensate_T_int32(int32_t adc_T);
 
   /**************************************************************************/
   /*!

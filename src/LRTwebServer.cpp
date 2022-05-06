@@ -66,10 +66,14 @@ void Homepage();
 //#########################################################################################
 void serverSetup()
 {
+    server.end();
+
     SetupWebpageHandlers();
 
-    // Start OTA server as well
+    // Start OTA server
     AsyncElegantOTA.begin(&server);
+
+    // Start web server
     server.begin();
 
     Serial.printf("webserver up\n");

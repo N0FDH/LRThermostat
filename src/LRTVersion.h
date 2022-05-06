@@ -11,7 +11,7 @@
 //============================
 #define PROTOTYPE
 //#define PCB_V1_GREENTAB
-//#define PCB_V1_REDTAB
+//#define PCB_V1_REDTAB // Currently only Randy's humidistat uses this display
 //============================
 
 //==============================================================================
@@ -32,11 +32,11 @@
 
 #ifdef PCB_V1_REDTAB
 #define PCB_VERSION 1 // 0 = prototype, 1 = 1st main release, etc
-#define ST7735_REDTAB // Currently only Randy's humidistat uses this display
+#define ST7735_REDTAB
 #define PCB_DISP "1R"
 #endif
 
 // Miscellaneous
-#define FW_VERSION "1.4"
+#define FW_VERSION "1.4a"
 
 #endif // LRTVERSION_H

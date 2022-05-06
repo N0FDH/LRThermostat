@@ -16,6 +16,7 @@
 #include <time.h>
 #include <WiFi.h>
 #include <Esp.h>
+#include <ESPmDNS.h>
 #include <CircularBuffer.h>
 #include "LRThermostat.h"
 #include "LRThermostat_menu.h"
@@ -30,6 +31,7 @@
 #define COMPRESSOR_DELAY (5 * 60)      // 5 minutes (counted in seconds)
 #define LOOP_1_SEC 1000                // 1000 mS = 1 sec
 #define T_10MIN_IN_SEC (10 * 60)       // 10 min (counted in seconds)
+#define T_1MIN_IN_SEC (1 * 60)         // 1 min (counted in seconds)
 #define T_6HOURS_IN_SEC (6 * 3600)     // 6 hours (counted in seconds)
 #define T_100MS 100                    // 100 mS
 #define UINT32_ERASED_VALUE 0xFFFFFFFF // erased value in eeprom/flash
@@ -133,6 +135,7 @@ void takeOverDisplayMain();
 void takeOverDisplayMisc();
 void shutDownPrevMode(bool force);
 void updateBaroRiseFall();
+void restartMdns();
 
 // display func declarations
 void dispMain();
@@ -245,12 +248,31 @@ void setup()
     }
 }
 
+// start mDNS server
+void restartMdns()
+{
+    // Remove previous instance
+    MDNS.end();
+
+    // Start
+    if (!MDNS.begin("LRT_garage"))
+    {
+        Serial.println("Error starting mDNS");
+    }
+    else
+    {
+        // Add service to MDNS-SD
+        MDNS.addService("http", "tcp", 80);
+    }
+}
+
 // Main Arduino control loop
 void loop()
 {
     uint32_t time1sec = millis() + LOOP_1_SEC;
     uint32_t time10min = 3;             // countdown
     uint32_t time6hr = T_6HOURS_IN_SEC; // countdown
+    uint32_t time1min = T_1MIN_IN_SEC;
     uint32_t curTime;
     uint32_t wifiRetry = 0;
     bool wifiUp = FALSE;
@@ -259,22 +281,32 @@ void loop()
     {
         curTime = millis();
 
-        // Attempt Wifi connection, although not required to operate
-        if (wifiUp == FALSE)
+        if (curTime >= wifiRetry)
         {
-            if (curTime >= wifiRetry)
+            // Attempt or re-attempt Wifi connection, although not required to operate
+            if ((wifiUp == FALSE) && (WiFi.status() == WL_CONNECTED))
             {
-                if (WiFi.status() == WL_CONNECTED)
-                {
-                    wifiUp = TRUE;
-                    Serial.println("wifi up -> " + WiFi.localIP().toString());
-                    serverSetup();
-                }
-                else
-                {
-                    wifiRetry = curTime + T_100MS;
-                }
+                wifiUp = TRUE;
+                Serial.println("wifi up -> " + WiFi.localIP().toString());
+                serverSetup();
+
+                // start/resstart the mDNS server
+                restartMdns();
             }
+
+            // Check on WiFi status
+            else if ((wifiUp == TRUE) && (WiFi.status() != WL_CONNECTED))
+            {
+                // If we get here it means we were once connected but aren't anymore...
+                wifiUp = FALSE;
+                wifiSetup();
+            }
+
+            // The other two combinations:
+            // FALSE && !WL_CONNECTED -- attempting connection (nothing to do here)
+            // TRUE && WL_CONNECTED -- operational (or here)
+
+            wifiRetry = curTime + T_100MS;
         }
 
         // Service tcMenu
@@ -368,7 +400,7 @@ void loop()
                 cbTemp.push(TEMP_FLOAT_TO_INT(curTemp));
                 cbBaro.push(BARO_FLOAT_TO_INT(curBaro));
 
-//                Serial.printf("t:%.2f, h:%.2f, b:%.3f\n", curTemp, curHumd, curBaro);
+                //                Serial.printf("t:%.2f, h:%.2f, b:%.3f\n", curTemp, curHumd, curBaro);
 
                 // Update baro display indicator;
                 // must be called after capturing a new point.
@@ -391,6 +423,18 @@ void loop()
                 accumulateUsage();
 
                 // Note: the loc vars get committed to EPROM below
+            }
+
+            // Restart mDNS every minute.
+            // We have to do this because of this issue:
+            // https://github.com/espressif/arduino-esp32/issues/4406
+            if (--time1min == 0)
+            {
+                time1min = T_1MIN_IN_SEC;
+                if (wifiUp)
+                {
+                    restartMdns();
+                }
             }
 
 #if PWM_TEST
