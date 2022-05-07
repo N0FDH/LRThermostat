@@ -255,7 +255,7 @@ void restartMdns()
     MDNS.end();
 
     // Start
-    if (!MDNS.begin("LRT_garage"))
+    if (!MDNS.begin("LRT-basement"))
     {
         Serial.println("Error starting mDNS");
     }
