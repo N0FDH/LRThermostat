@@ -125,6 +125,11 @@ void SetupWebpageHandlers()
     server.on("/homepage", HTTP_GET,
               [](AsyncWebServerRequest *request)
               { Homepage(); request->send(200, "text/html", webpage); });
+
+    // Set handler for '/graphs'
+    server.on("/graphs", HTTP_GET,
+              [](AsyncWebServerRequest *request)
+              { Homepage(); request->send(200, "text/html", webpage); });
 }
 
 //#########################################################################################
@@ -231,3 +236,82 @@ void append_HTML_footer()
     webpage += "</footer>";
     webpage += "</body></html>";
 }
+
+#if 0
+//#########################################################################################
+void Graphs()
+{
+    append_HTML_header(300);
+    webpage += "<h2>Thermostat Readings</h2>";
+    webpage += "<script type='text/javascript' src='https://www.gstatic.com/charts/loader.js'></script>";
+    webpage += "<script type='text/javascript'>";
+    webpage += "google.charts.load('current', {'packages':['corechart']});";
+    webpage += "google.charts.setOnLoadCallback(drawGraphT1);"; // Pre-load function names for Temperature graphs
+    webpage += "google.charts.setOnLoadCallback(drawGraphH1);"; // Pre-load function names for Humidity graphs
+    AddGraph(1, "GraphT", "Temperature", "TS", "Â°C", "red", "chart_div");
+    AddGraph(1, "GraphH", "Humidity", "HS", "%", "blue", "chart_div");
+    webpage += "</script>";
+    webpage += "<div id='outer'>";
+    webpage += "<table>";
+    webpage += "<tr>";
+    webpage += "  <td><div id='chart_divTS1' style='width:50%'></div></td>";
+    webpage += "  <td><div id='chart_divHS1' style='width:50%'></div></td>";
+    webpage += "</tr>";
+    webpage += "</table>";
+    webpage += "<br>";
+    webpage += "</div>";
+    append_HTML_footer();
+}
+//#########################################################################################
+String PreLoadChartData(byte Channel, String Type)
+{
+    byte r = 0;
+    String Data = "";
+    do
+    {
+        if (Type == "Temperature")
+        {
+            Data += "[" + String(r) + "," + String(sensordata[Channel][r].Temp, 1) + "," + String(TargetTemp, 1) + "],";
+        }
+        else
+        {
+            Data += "[" + String(r) + "," + String(sensordata[Channel][r].Humi) + "],";
+        }
+        r++;
+    } while (r < SensorReadings);
+    Data += "]";
+    return Data;
+}
+//#########################################################################################
+void AddGraph(byte Channel, String Type, String Title, String GraphType, String Units, String Colour, String Div)
+{
+    String Data = PreLoadChartData(Channel, Title);
+    webpage += "function draw" + Type + String(Channel) + "() {";
+    if (Type == "GraphT")
+    {
+        webpage += " var data = google.visualization.arrayToDataTable(" + String("[['Hour', 'Rm TÂ°', 'Tgt TÂ°'],") + Data + ");";
+    }
+    else
+        webpage += " var data = google.visualization.arrayToDataTable(" + String("[['Hour', 'RH %'],") + Data + ");";
+    webpage += " var options = {";
+    webpage += "  title: '" + Title + "',";
+    webpage += "  titleFontSize: 14,";
+    webpage += "  backgroundColor: '" + backgrndColour + "',";
+    webpage += "  legendTextStyle: { color: '" + legendColour + "' },";
+    webpage += "  titleTextStyle:  { color: '" + titleColour + "' },";
+    webpage += "  hAxis: {color: '#FFF'},";
+    webpage += "  vAxis: {color: '#FFF', title: '" + Units + "'},";
+    webpage += "  curveType: 'function',";
+    webpage += "  pointSize: 1,";
+    webpage += "  lineWidth: 1,";
+    webpage += "  width:  450,";
+    webpage += "  height: 280,";
+    webpage += "  colors:['" + Colour + (Type == "GraphT" ? "', 'orange" : "") + "'],";
+    webpage += "  legend: { position: 'right' }";
+    webpage += " };";
+    webpage += " var chart = new google.visualization.LineChart(document.getElementById('" + Div + GraphType + String(Channel) + "'));";
+    webpage += "  chart.draw(data, options);";
+    webpage += " };";
+}
+//#########################################################################################
+#endif

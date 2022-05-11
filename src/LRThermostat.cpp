@@ -255,7 +255,7 @@ void restartMdns()
     MDNS.end();
 
     // Start
-    if (!MDNS.begin("LRT-basement"))
+    if (!MDNS.begin("LRT-garage"))
     {
         Serial.println("Error starting mDNS");
     }
@@ -283,14 +283,14 @@ void loop()
 
         if (curTime >= wifiRetry)
         {
-            // Attempt or re-attempt Wifi connection, although not required to operate
+            // Poll for Wifi connection (not required to operate)
             if ((wifiUp == FALSE) && (WiFi.status() == WL_CONNECTED))
             {
                 wifiUp = TRUE;
                 Serial.println("wifi up -> " + WiFi.localIP().toString());
                 serverSetup();
 
-                // start/resstart the mDNS server
+                // start/restart the mDNS server
                 restartMdns();
             }
 
@@ -299,12 +299,12 @@ void loop()
             {
                 // If we get here it means we were once connected but aren't anymore...
                 wifiUp = FALSE;
-                wifiSetup();
+                WiFi.reconnect();
             }
 
             // The other two combinations:
-            // FALSE && !WL_CONNECTED -- attempting connection (nothing to do here)
-            // TRUE && WL_CONNECTED -- operational (or here)
+            // wifiUp == FALSE && !WL_CONNECTED -- attempting connection (nothing to do here)
+            // wifiUp == TRUE && WL_CONNECTED -- operational
 
             wifiRetry = curTime + T_100MS;
         }
@@ -335,7 +335,7 @@ void loop()
                 dehumidifyControl();
                 if (ctlState == ON)
                 {
-                    coolSeconds++;
+                    dhSeconds++;
                 }
                 break;
 
@@ -343,7 +343,7 @@ void loop()
                 acControl();
                 if (ctlState == ON)
                 {
-                    dhSeconds++;
+                    coolSeconds++;
                 }
                 break;
 
@@ -1216,7 +1216,14 @@ void GatherSysInfo(bool unused)
 //    tft.println("MAC: " + WiFi.macAddress());
 
     // WiFi Strength
-    tft.println("Signal Strength: " + WiFiSignal());
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        tft.println("Signal Strength: " + WiFiSignal());
+    }
+    else
+    {
+        tft.println("Signal Strength: 0%");
+    }
 
     // FWV
     tft.printf("PCB-FW: %s-%s\n", PCB_DISP, FW_VERSION);
@@ -1579,9 +1586,12 @@ void timeSetup()
 //*********************************************************************************************
 void wifiSetup()
 {
-    Serial.printf("Connecting to: %s\n", ssid);
     WiFi.disconnect();
+
+    Serial.printf("Connecting to: %s\n", ssid);
     WiFi.mode(WIFI_STA);
+
+    // not sure either of these settings work...
     WiFi.setAutoConnect(true);
     WiFi.setAutoReconnect(true);
 

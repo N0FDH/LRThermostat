@@ -15,7 +15,7 @@
 //============================
 
 // FW version
-#define FW_VERSION "1.5"
+#define FW_VERSION "1.5b"
 
 //==============================================================================
 // *** DON'T CHANGE ANYTHING BELOW THIS LINE ***
