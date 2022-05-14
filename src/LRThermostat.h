@@ -46,6 +46,9 @@ extern float humdCal;    // calibration factor
 extern float baroCal;    // calibration factor
 extern float hysteresis; //  (+/-) hysteresis/2 is centered around the set point.
 
+extern bool ctlState; // heat/cool/dh state
+extern bool fanState; // fan state
+
 // Note: tcMenu does not provide enums like this. Be sure to update these
 // if/when you change the 'mode' or 'fan' variable in tcMenu. Order must match!
 typedef enum

@@ -136,18 +136,23 @@ void SetupWebpageHandlers()
 void Homepage()
 {
     uint16_t setPt = 0;
+    const char *mName = "OFF";
+
     switch (mode)
     {
     case HEAT:
         setPt = loc.heatSetPt;
+        mName = "Heat";
         break;
 
     case COOL:
         setPt = loc.acSetPt;
+        mName = "A/C";
         break;
 
     case DEHUMIDIFY:
         setPt = loc.dhSetPt;
+        mName = "Dhm";
         break;
 
     case NO_MODE:
@@ -177,15 +182,9 @@ void Homepage()
     webpage += "<td class='medium'>" + String(curHumd, 0) + "%</td>";
     webpage += "<td class='medium'>" + String(curBaro, 2) + " in</td>";
     //    webpage += "<td class='large'>" + String((float)setPt, 1) + "&deg;</td>";
-    webpage += "<td class='medium'>"
-               "Heat"
-               "</td>";
-    webpage += "<td class='medium'>"
-               "On"
-               "</td>";
-    webpage += "<td class='medium'>"
-               "Auto"
-               "</td>";
+    webpage += "<td class='medium'>" + String(mName) + "</td>";
+    webpage += "<td class='medium'>" + String(ctlState ? "On" : "Off") + "</td>";
+    webpage += "<td class='medium'>" + String(fanState ? "On" : "Auto") + "</td>";
     webpage += "</tr>";
     //------------------------------------
     webpage += "</table>";

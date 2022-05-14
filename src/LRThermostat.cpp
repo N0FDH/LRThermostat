@@ -7,7 +7,11 @@
 // - Write main HTML status page including uptime and "on times"
 // - Sync to ntp if possible
 // - setpoint line on graphs should be conditional to MODE
-
+// - add a "this cycle run time" counter and add to display
+//   * keep on display after cycle finishes too
+// - log on and off times (maybe last 25 ?)
+//   - add ability to display last 8 on display
+//   - do some statistics too -- avg run time
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -109,7 +113,7 @@ const uint32_t pwmChannel = 0;
 const uint32_t pwmResolution = 8;
 // This a lot of trial and error, but comes out pretty good 10-100% in 10% increments
 const uint8_t pwmDutyCycle[] = {1, 3, 7, 13, 23, 40, 69, 120, 185, 255};
-#define PWM_MAX (sizeof(pwmDutyCycle) - 1)
+#define PWM_MAX (sizeof(pwmDutyCycle) / sizeof(pwmDutyCycle[0]) - 1)
 int32_t pwmCount = PWM_MAX;
 bool pwmDirUp = false;
 #define PWM_TEST 0
@@ -226,10 +230,15 @@ void setup()
     pinMode(DOWN_SWITCH, INPUT_PULLUP);
     pinMode(ENTER_SWITCH, INPUT_PULLUP);
 
+#if PWM_TEST
     // configure LED PWM functionality
     ledcSetup(pwmChannel, pwmFreq, pwmResolution);
     ledcAttachPin(BACK_LIGHT, pwmChannel);
     ledcWrite(pwmChannel, pwmDutyCycle[PWM_MAX]); // max brightness
+#else
+    pinMode(BACK_LIGHT, OUTPUT);
+    digitalWrite(BACK_LIGHT, TRUE);
+#endif
 
     // Scope debug pin
     pinMode(SCOPE_PIN, OUTPUT);
@@ -255,7 +264,7 @@ void restartMdns()
     MDNS.end();
 
     // Start
-    if (!MDNS.begin("LRT-garage"))
+    if (!MDNS.begin("LRT-basement"))
     {
         Serial.println("Error starting mDNS");
     }
@@ -941,6 +950,12 @@ void acControl()
 #endif
 }
 
+// disable this feature for now
+#define CTL_DEBOUNCE_CNT 5
+uint32_t ctlDebounce = CTL_DEBOUNCE_CNT;
+
+// Add on/off logging
+// Add 5-second "debounce" before transitioning on/off
 void dehumidifyControl()
 {
     float set = loc.dhSetPt;
@@ -951,9 +966,17 @@ void dehumidifyControl()
 
         if (!wait)
         {
-            ctlState = OFF;
-            DH(OFF);
-            compressorDelay = COMPRESSOR_DELAY;
+            if (1) //(!ctlDebounce) -- disabled until further testing
+            {
+                ctlState = OFF;
+                DH(OFF);
+                compressorDelay = COMPRESSOR_DELAY;
+                ctlDebounce = CTL_DEBOUNCE_CNT;
+            }
+            else
+            {
+                ctlDebounce--;
+            }
         }
     }
     else if ((ctlState == OFF) && (curHumd >= (set + hysteresis)))
@@ -962,9 +985,17 @@ void dehumidifyControl()
 
         if (!wait)
         {
-            ctlState = ON;
-            DH(ON);
-            minRunTimeDelay = dhMinRunTime;
+            if (!ctlDebounce)
+            {
+                ctlState = ON;
+                DH(ON);
+                minRunTimeDelay = dhMinRunTime;
+                ctlDebounce = CTL_DEBOUNCE_CNT;
+            }
+            else
+            {
+                ctlDebounce--;
+            }
         }
     }
     else
