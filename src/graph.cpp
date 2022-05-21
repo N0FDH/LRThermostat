@@ -160,6 +160,7 @@ void drawGraph(SENSOR_TYPE type, GRAPH_CNT count)
     uint32_t yDiv = 100;
     uint32_t low = 0;
     uint32_t high = 0;
+    float dhHighLimit = ((float_t)loc.dhSetPt + menuHumdHysteresis.getLargeNumber()->getAsFloat());
 
     // Save last count so we know what to draw if we get a '0' as count
     if (count == GR_0H)
@@ -202,18 +203,21 @@ void drawGraph(SENSOR_TYPE type, GRAPH_CNT count)
         digits = 2;
         yDiv = 1000;
         low = cbBaro[start];
+        high = low;
         break;
 
     case SN_TEMP:
         pData = &cbTemp;
         pTitle = " Temperature";
         low = loc.heatSetPt * 100; // start with setpoint to be sure it is included
+        high = low;
         break;
 
     case SN_HUMD:
         pData = &cbHumd;
         pTitle = "  Humidity";
         low = loc.dhSetPt * 100; // start with setpoint to be sure it is included
+        high = (uint32_t)(dhHighLimit * 100); // DH high limit has to be included too
         break;
 
     default:
@@ -221,7 +225,6 @@ void drawGraph(SENSOR_TYPE type, GRAPH_CNT count)
     }
 
     // Scan data to get its range
-    high = low;
     for (int32_t n = start; n < pData->size(); n++)
     {
         uint32_t tmp = (*pData)[n];
@@ -298,6 +301,17 @@ void drawGraph(SENSOR_TYPE type, GRAPH_CNT count)
                          XLOW, XHI,                                                       // xlow, xhi
                          ylo, yhi,                                                        // ylow, yhi
                          SETPT_COLOR);                                                    // setpoint line color
+    }
+    if (type == SN_HUMD)
+    {
+        // Draw the setpoint + hysteresis
+        drawSetpointLine(tft,
+                         dhHighLimit,            // Set point
+                         GRAPH_LL_X, GRAPH_LL_Y, // lower left corner of graph
+                         WIDTH_X, HEIGHT_Y,      // width, height
+                         XLOW, XHI,              // xlow, xhi
+                         ylo, yhi,               // ylow, yhi
+                         SETPT_COLOR);           // setpoint line color
     }
 
     graphUpdateCurVal(type);
