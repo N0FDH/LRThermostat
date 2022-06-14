@@ -9,13 +9,13 @@
 // Uncomment only ONE of the following.
 // This selects what type of hardware you are targeting.
 //============================
-#define PROTOTYPE // All prototypes
+//#define PROTOTYPE // All prototypes
 //#define PCB_V1_GREENTAB // Loren's basement
-//#define PCB_V1_REDTAB // Randy's basement
+#define PCB_V1_REDTAB // Randy's basement
 //============================
 
 // FW version
-#define FW_VERSION "1.52"
+#define FW_VERSION "1.53"
 
 //==============================================================================
 // *** DON'T CHANGE ANYTHING BELOW THIS LINE ***

@@ -54,6 +54,33 @@
 #define DH(a) digitalWrite(DH_RELAY, ((a) ? (ON) : (OFF)))
 #endif
 
+// **************************** InfluxDB *****************************
+//#define DEVICE "ESP32"
+#include <InfluxDbClient.h>
+#include <InfluxDbCloud.h>
+
+// InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
+#define INFLUXDB_URL "https://us-central1-1.gcp.cloud2.influxdata.com"
+// InfluxDB v2 server or cloud API token (Use: InfluxDB UI -> Data -> API Tokens -> Generate API Token)
+#define INFLUXDB_TOKEN "6Q9gHDpao8Q5a5hEPurQloOJshDCR6q1N7nj5RAcCtT3Z2vj2oDnvnV2gSEe6ZqB9xCptlECOHNN-k7yC_PmfQ=="
+// InfluxDB v2 organization id (Use: InfluxDB UI -> User -> About -> Common Ids )
+#define INFLUXDB_ORG "randy.rysavy@gmail.com"
+// InfluxDB v2 bucket name (Use: InfluxDB UI ->  Data -> Buckets)
+#define INFLUXDB_BUCKET "LRThermostat1"
+
+// InfluxDB client instance with preconfigured InfluxCloud certificate
+InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+
+// Data point
+// items to capture:
+// - humidity
+// - temp
+// - baro
+// - mode
+// - state
+Point lrtData("LRT");
+// **************************** END InfluxDB *************************
+
 // Temp/humidity/pressure sensor - BME280
 Adafruit_BME280 bme;
 
@@ -257,24 +284,6 @@ void setup()
     }
 }
 
-// start mDNS server
-void restartMdns()
-{
-    // Remove previous instance
-    MDNS.end();
-
-    // Start
-    if (!MDNS.begin("LRT-basement"))
-    {
-        Serial.println("Error starting mDNS");
-    }
-    else
-    {
-        // Add service to MDNS-SD
-        MDNS.addService("http", "tcp", 80);
-    }
-}
-
 // Main Arduino control loop
 void loop()
 {
@@ -442,7 +451,30 @@ void loop()
                 time1min = T_1MIN_IN_SEC;
                 if (wifiUp)
                 {
+                    // This is a B.S. service; very flakey. Should remove.
                     restartMdns();
+
+                    // InFLuxDB stuff
+                    // Store measured value into point
+                    lrtData.clearFields();
+
+                    // Populate data
+                    lrtData.addField("humidity", curHumd);
+                    lrtData.addField("pressure", curBaro);
+                    lrtData.addField("temperature", curTemp);
+                    lrtData.addField("state", (int32_t)ctlState);
+                    lrtData.addField("mode", (int32_t)mode);
+
+                    // Print what are we writing to influxDB
+                    Serial.print("InfluxDB: ");
+                    Serial.println(client.pointToLineProtocol(lrtData));
+
+                    // Write point
+                    if (!client.writePoint(lrtData))
+                    {
+                        Serial.print("InfluxDB write failed: ");
+                        Serial.println(client.getLastErrorMessage());
+                    }
                 }
             }
 
@@ -794,7 +826,7 @@ void readSensors()
 
     // Create exponential filters with a weight of 10%
     static ExponentialFilter<float> tempFilter(10, 0);
-    static ExponentialFilter<float> humdFilter(10, 0);
+    static ExponentialFilter<float> humdFilter(1, 0); // 1% -- humidity is super sensitive and fast
     static ExponentialFilter<float> baroFilter(10, 0);
 
     if (readSensorsInit == FALSE)
@@ -944,8 +976,11 @@ void acControl()
         lastSt = ctlState;
         lastSet = set;
 
-        Serial.printf("cool: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s  cmpDly: %u\n",
-                      curTemp, set, hysteresis, ctlState ? "ON" : "OFF", compressorDelay);
+        if (compressorDelay % 30 == 0)
+        {
+            Serial.printf("cool: cur:%0.2f  set:%0.2f  hys(+/-):%0.2f  %s  cmpDly: %u\n",
+                          curTemp, set, hysteresis, ctlState ? "ON" : "OFF", compressorDelay);
+        }
     }
 #endif
 }
@@ -1013,8 +1048,11 @@ void dehumidifyControl()
         lastSt = ctlState;
         lastSet = set;
 
-        Serial.printf("dh: cur:%0.2f  set:%0.2f  hys(+N/-0):%0.2f  %s  cmpDly: %u  minRT: %u\n",
-                      curHumd, set, hysteresis, ctlState ? "ON" : "OFF", compressorDelay, minRunTimeDelay);
+        if ((compressorDelay && (compressorDelay % 30 == 0)) || (minRunTimeDelay && (minRunTimeDelay % 30 == 0)))
+        {
+            Serial.printf("dh: cur:%0.2f  set:%0.2f  hys(+N/-0):%0.2f  %s  cmpDly: %u  minRT: %u\n",
+                          curHumd, set, hysteresis, ctlState ? "ON" : "OFF", compressorDelay, minRunTimeDelay);
+        }
     }
 #endif
 }
@@ -1675,5 +1713,23 @@ void wifiSetup()
         Serial.println("Using EEPROM creds");
         pSsid = loc.ssid;
         WiFi.begin(loc.ssid, loc.password);
+    }
+}
+
+// start mDNS server
+void restartMdns()
+{
+    // Remove previous instance
+    MDNS.end();
+
+    // Start
+    if (!MDNS.begin("LRT-basement"))
+    {
+        Serial.println("Error starting mDNS");
+    }
+    else
+    {
+        // Add service to MDNS-SD
+        MDNS.addService("http", "tcp", 80);
     }
 }
