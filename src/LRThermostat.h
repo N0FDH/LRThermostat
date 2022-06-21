@@ -78,14 +78,21 @@ typedef struct
     uint16_t powerCycleCnt; // put something in an otherwise empty pad :)
     uint32_t bootTime;      // epoch time() of boot
     uint32_t lastClear;     // epoch time() of last clear of "on time" counters
-
+                            // 16 bytes
     uint32_t heatSeconds;   // total heat "on" time
     uint32_t coolSeconds;   // total a/c "on" time
     uint32_t dhSeconds;     // total dh "on" time
     uint32_t pad1;          // pad to 32-byte alignment
-
-    char ssid[32];     // WiFi
-    char password[32]; // WiFi
+                            // 16 bytes
+    char ssid[32];          // WiFi
+    char password[32];      // WiFi
+                            // 64 bytes
+    char influxDbToken[128]; // InfluxDB v2 server or cloud API token
+    char influxDbUrl[128];   // InfluxDB v2 server url
+    char influxDbOrg[80];    // InfluxDB v2 organization id
+    char influxDbBucket[80]; // InfluxDB v2 bucket name
+                             // 416 bytes
+                             // Total = 16*2 + 64 + 416 = 512 bytes
 } EEPROM_LOCAL_VARS;
 extern EEPROM_LOCAL_VARS loc; // local working variables
 

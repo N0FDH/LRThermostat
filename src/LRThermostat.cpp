@@ -25,6 +25,8 @@
 #include "LRThermostat.h"
 #include "LRThermostat_menu.h"
 #include "WifiCredentials.h"
+#include <InfluxDbClient.h>
+#include <InfluxDbCloud.h>
 
 #define DEBUG 1
 
@@ -55,21 +57,8 @@
 #endif
 
 // **************************** InfluxDB *****************************
-//#define DEVICE "ESP32"
-#include <InfluxDbClient.h>
-#include <InfluxDbCloud.h>
-
-// InfluxDB v2 server url, e.g. https://eu-central-1-1.aws.cloud2.influxdata.com (Use: InfluxDB UI -> Load Data -> Client Libraries)
-#define INFLUXDB_URL "https://us-central1-1.gcp.cloud2.influxdata.com"
-// InfluxDB v2 server or cloud API token (Use: InfluxDB UI -> Data -> API Tokens -> Generate API Token)
-#define INFLUXDB_TOKEN "6Q9gHDpao8Q5a5hEPurQloOJshDCR6q1N7nj5RAcCtT3Z2vj2oDnvnV2gSEe6ZqB9xCptlECOHNN-k7yC_PmfQ=="
-// InfluxDB v2 organization id (Use: InfluxDB UI -> User -> About -> Common Ids )
-#define INFLUXDB_ORG "randy.rysavy@gmail.com"
-// InfluxDB v2 bucket name (Use: InfluxDB UI ->  Data -> Buckets)
-#define INFLUXDB_BUCKET "LRThermostat1"
-
-// InfluxDB client instance with preconfigured InfluxCloud certificate
-InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKEN, InfluxDbCloud2CACert);
+// InfluxDB client instance
+InfluxDBClient influxdb;
 
 // Data point
 // items to capture:
@@ -79,7 +68,6 @@ InfluxDBClient client(INFLUXDB_URL, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_TOKE
 // - mode
 // - state
 Point lrtData("LRT");
-// **************************** END InfluxDB *************************
 
 // Temp/humidity/pressure sensor - BME280
 Adafruit_BME280 bme;
@@ -193,10 +181,10 @@ void (*altDispRefreshFunc)(GRAPH_CNT c) = NULL;
 // Main Arduino setup function
 void setup()
 {
-    // Initialize the EEPROM class to 512 bytes of storage
+    // Initialize the EEPROM class to 1024 bytes of storage
     // 0x000-0x0FF  tcMenu
-    // 0x100-0x1FF  local vars
-    EEPROM.begin(0x200);
+    // 0x100-0x3FF  local vars
+    EEPROM.begin(0x400);
 
     // tcMenu
     setupMenu();
@@ -282,6 +270,20 @@ void setup()
     {
         loc.pad1 = 0;
     }
+
+    // Copy InfluxDB stuff to EEPROM
+    if (*(uint32_t *)(&loc.influxDbToken) == UINT32_ERASED_VALUE)
+    {
+        Serial.println("Copy InFluxDB creds to EEPROM");
+        strncpy(loc.influxDbUrl, INFLUXDB_URL, sizeof(loc.influxDbUrl));
+        strncpy(loc.influxDbOrg, INFLUXDB_ORG, sizeof(loc.influxDbOrg));
+        strncpy(loc.influxDbBucket, INFLUXDB_BUCKET, sizeof(loc.influxDbBucket));
+        strncpy(loc.influxDbToken, INFLUXDB_TOKEN, sizeof(loc.influxDbToken));
+    }
+
+    // Setup connection
+    influxdb.setConnectionParams(loc.influxDbUrl, loc.influxDbOrg, loc.influxDbBucket,
+                                 loc.influxDbToken, InfluxDbCloud2CACert);
 }
 
 // Main Arduino control loop
@@ -467,13 +469,13 @@ void loop()
 
                     // Print what are we writing to influxDB
                     Serial.print("InfluxDB: ");
-                    Serial.println(client.pointToLineProtocol(lrtData));
+                    Serial.println(influxdb.pointToLineProtocol(lrtData));
 
                     // Write point
-                    if (!client.writePoint(lrtData))
+                    if (!influxdb.writePoint(lrtData))
                     {
                         Serial.print("InfluxDB write failed: ");
-                        Serial.println(client.getLastErrorMessage());
+                        Serial.println(influxdb.getLastErrorMessage());
                     }
                 }
             }

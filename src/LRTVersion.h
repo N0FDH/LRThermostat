@@ -10,8 +10,8 @@
 // This selects what type of hardware you are targeting.
 //============================
 //#define PROTOTYPE // All prototypes
-//#define PCB_V1_GREENTAB // Loren's basement
-#define PCB_V1_REDTAB // Randy's basement
+#define PCB_V1_GREENTAB // Loren's basement
+//#define PCB_V1_REDTAB // Randy's basement
 //============================
 
 // FW version
