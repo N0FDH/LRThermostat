@@ -11,7 +11,9 @@
 //   * keep on display after cycle finishes too
 // - log on and off times (maybe last 25 ?)
 //   - add ability to display last 8 on display
-//   - do some statistics too -- avg run time
+//   - do some statistics too -- avg run time, run count last 24 hrs
+//   - Change WiFi monitoring to event driven
+// - add a total cycle count alongside the total runtime
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -59,6 +61,7 @@
 // **************************** InfluxDB *****************************
 // InfluxDB client instance
 InfluxDBClient influxdb;
+bool influxdbUp = FALSE;
 
 // Data point
 // items to capture:
@@ -175,6 +178,7 @@ void dispBaro();
 
 void timeSetup();
 void wifiSetup();
+void influxdbSetup();
 
 void (*altDispRefreshFunc)(GRAPH_CNT c) = NULL;
 
@@ -271,19 +275,8 @@ void setup()
         loc.pad1 = 0;
     }
 
-    // Copy InfluxDB stuff to EEPROM
-    if (*(uint32_t *)(&loc.influxDbToken) == UINT32_ERASED_VALUE)
-    {
-        Serial.println("Copy InFluxDB creds to EEPROM");
-        strncpy(loc.influxDbUrl, INFLUXDB_URL, sizeof(loc.influxDbUrl));
-        strncpy(loc.influxDbOrg, INFLUXDB_ORG, sizeof(loc.influxDbOrg));
-        strncpy(loc.influxDbBucket, INFLUXDB_BUCKET, sizeof(loc.influxDbBucket));
-        strncpy(loc.influxDbToken, INFLUXDB_TOKEN, sizeof(loc.influxDbToken));
-    }
-
-    // Setup connection
-    influxdb.setConnectionParams(loc.influxDbUrl, loc.influxDbOrg, loc.influxDbBucket,
-                                 loc.influxDbToken, InfluxDbCloud2CACert);
+    // influx
+    influxdbSetup();
 }
 
 // Main Arduino control loop
@@ -456,26 +449,29 @@ void loop()
                     // This is a B.S. service; very flakey. Should remove.
                     restartMdns();
 
-                    // InFLuxDB stuff
-                    // Store measured value into point
-                    lrtData.clearFields();
-
-                    // Populate data
-                    lrtData.addField("humidity", curHumd);
-                    lrtData.addField("pressure", curBaro);
-                    lrtData.addField("temperature", curTemp);
-                    lrtData.addField("state", (int32_t)ctlState);
-                    lrtData.addField("mode", (int32_t)mode);
-
-                    // Print what are we writing to influxDB
-                    Serial.print("InfluxDB: ");
-                    Serial.println(influxdb.pointToLineProtocol(lrtData));
-
-                    // Write point
-                    if (!influxdb.writePoint(lrtData))
+                    if (influxdbUp)
                     {
-                        Serial.print("InfluxDB write failed: ");
-                        Serial.println(influxdb.getLastErrorMessage());
+                        // InFLuxDB stuff
+                        // Store measured value into point
+                        lrtData.clearFields();
+
+                        // Populate data
+                        lrtData.addField("humidity", curHumd);
+                        lrtData.addField("pressure", curBaro);
+                        lrtData.addField("temperature", curTemp);
+                        lrtData.addField("state", (int32_t)ctlState);
+                        lrtData.addField("mode", (int32_t)mode);
+
+                        // Print what are we writing to influxDB
+                        Serial.print("InfluxDB: ");
+                        Serial.println(influxdb.pointToLineProtocol(lrtData));
+
+                        // Write point
+                        if (!influxdb.writePoint(lrtData))
+                        {
+                            Serial.print("InfluxDB write failed: ");
+                            Serial.println(influxdb.getLastErrorMessage());
+                        }
                     }
                 }
             }
@@ -1683,7 +1679,7 @@ void wifiSetup()
     {
         // EEPROM is empty, store fw credentials to EEPROM.
         // This is the one time occurance mentioned above.
-        Serial.println("Copy FW creds to EEPROM - first time");
+        Serial.println("Copy FW WiFi creds to EEPROM - first time");
 
         strncpy(loc.ssid, ssid, sizeof(loc.ssid) - 1);
         strncpy(loc.password, password, sizeof(loc.password) - 1);
@@ -1700,21 +1696,99 @@ void wifiSetup()
     {
         if (!digitalRead(UP_SWITCH))
         {
-            Serial.println("Copy FW creds to EEPROM - UP pressed");
+            Serial.println("Copy FW WiFi creds to EEPROM - UP pressed");
 
             // Copy to EEPROM (UPdate)
             strncpy(loc.ssid, ssid, sizeof(loc.ssid) - 1);
             strncpy(loc.password, password, sizeof(loc.password) - 1);
         }
-        Serial.println("Using FW creds");
+        Serial.println("Using FW WiFi creds");
         pSsid = (char *)ssid;
         WiFi.begin(ssid, password);
     }
     else
     {
-        Serial.println("Using EEPROM creds");
+        Serial.println("Using EEPROM WiFi creds");
         pSsid = loc.ssid;
         WiFi.begin(loc.ssid, loc.password);
+    }
+}
+
+//*********************************************************************************************
+void copyInfluxToEEPROM()
+{
+    strncpy(loc.influxDbUrl, INFLUXDB_URL, sizeof(loc.influxDbUrl));
+    strncpy(loc.influxDbOrg, INFLUXDB_ORG, sizeof(loc.influxDbOrg));
+    strncpy(loc.influxDbBucket, INFLUXDB_BUCKET, sizeof(loc.influxDbBucket));
+    strncpy(loc.influxDbToken, INFLUXDB_TOKEN, sizeof(loc.influxDbToken));
+
+    // Make sure the field is null terminated so we don't have a runaway buffer.
+    // This only needs to be done once as well, as long as we only copy at most
+    // "sizeof(a)-1" bytes.
+    loc.influxDbUrl[sizeof(loc.influxDbUrl) - 1] = 0;
+    loc.influxDbOrg[sizeof(loc.influxDbOrg) - 1] = 0;
+    loc.influxDbBucket[sizeof(loc.influxDbBucket) - 1] = 0;
+    loc.influxDbToken[sizeof(loc.influxDbToken) - 1] = 0;
+}
+
+void influxdbSetup()
+{
+    bool copy = 0;
+
+    // The influxdb credentials to use is based upon the state of the UP and ENTER switches
+    // at boot time, according to the followingn table:
+    //
+    //      ENTER       UP(date)        ACTION
+    //      no          no              default, use credentials from EEPROM**
+    //      no          yes             same as default (no new action)
+    //      yes         no              use FW credentials, do NOT UPdate EEPROM
+    //      yes         yes             use FW credentials, DO UPdate EEPROM
+    //
+    // **If no credentials in EEPROM, use FW credentials and store them to EEPROM.
+    //   This should be a one time occurance only.
+
+    // Check if anything stored in EEPROM
+    if (*(uint32_t *)(&loc.influxDbToken) == UINT32_ERASED_VALUE)
+    {
+        Serial.println("Copy FW influx creds to EEPROM - first time");
+        copyInfluxToEEPROM();
+        copy = 1;
+    }
+    else
+    {
+        // Now start normal checks for button presses
+        if (!digitalRead(ENTER_SWITCH))
+        {
+            if (!digitalRead(UP_SWITCH))
+            {
+                Serial.println("Copy FW influx creds to EEPROM - UP pressed");
+
+                // Copy to EEPROM (UPdate)
+                copyInfluxToEEPROM();
+                copy = 1;
+            }
+        }
+    }
+
+    if (copy)
+    {
+        Serial.println("Using FW influx creds");
+    }
+    else
+    {
+        Serial.println("Using EEPROM influx creds");
+    }
+
+    // Setup connection
+    if (!strcmp(INFLUXDB_URL, "URL"))
+    {
+        influxdb.setConnectionParams(loc.influxDbUrl, loc.influxDbOrg, loc.influxDbBucket,
+                                     loc.influxDbToken, InfluxDbCloud2CACert);
+        influxdbUp = TRUE;
+    }
+    else
+    {
+        Serial.println("No influx creds available");
     }
 }
 

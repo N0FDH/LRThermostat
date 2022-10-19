@@ -61,8 +61,8 @@ typedef enum
 
 typedef enum
 {
-    FAN_ON,
-    FAN_AUTO
+    FAN_ON,  // Fan is forced on
+    FAN_AUTO // Fan is controlled by the furnace
 } FAN;
 
 extern MODE mode, lastMode;
