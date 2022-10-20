@@ -1654,8 +1654,6 @@ void timeSetup()
 void wifiSetup()
 {
     WiFi.disconnect();
-
-    Serial.printf("Connecting to: %s\n", ssid);
     WiFi.mode(WIFI_STA);
 
     // not sure either of these settings work...
@@ -1712,6 +1710,8 @@ void wifiSetup()
         pSsid = loc.ssid;
         WiFi.begin(loc.ssid, loc.password);
     }
+
+    Serial.printf("Connecting to: %s\n", pSsid);
 }
 
 //*********************************************************************************************
@@ -1779,8 +1779,10 @@ void influxdbSetup()
         Serial.println("Using EEPROM influx creds");
     }
 
+    // Serial.println(loc.influxDbUrl);
+
     // Setup connection
-    if (!strcmp(INFLUXDB_URL, "URL"))
+    if (strcmp(INFLUXDB_URL, "URL") != 0)
     {
         influxdb.setConnectionParams(loc.influxDbUrl, loc.influxDbOrg, loc.influxDbBucket,
                                      loc.influxDbToken, InfluxDbCloud2CACert);
