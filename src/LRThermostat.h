@@ -82,19 +82,33 @@ typedef struct
     uint32_t heatSeconds;   // total heat "on" time
     uint32_t coolSeconds;   // total a/c "on" time
     uint32_t dhSeconds;     // total dh "on" time
-    uint32_t pad1;          // pad to 32-byte alignment
+    uint32_t locMagic;      // Magic id of this 'loc' format
                             // 16 bytes
-    char ssid[32];          // WiFi
-    char password[32];      // WiFi
-                            // 64 bytes
+    uint32_t heatCount;     // total heat "on" time
+    uint32_t coolCount;     // total a/c "on" time
+    uint32_t dhCount;       // total dh "on" time
+                            // 12 bytes
+
+    uint8_t  pad0[212];     // Pad out to multiple of 256 bytes. This gives me a way to pseudo-erase 
+                            // this area. I can get rid of this after all LRTs have been updated.
+
+                            // Total = 16 + 16 + 12 + 212 = 256 bytes
+} EEPROM_LOCAL_VARS;
+extern EEPROM_LOCAL_VARS loc; // local working variables
+
+typedef struct
+{
+    char ssid[32];           // WiFi
+    char password[32];       // WiFi
+                             // 64 bytes
     char influxDbToken[128]; // InfluxDB v2 server or cloud API token
     char influxDbUrl[128];   // InfluxDB v2 server url
     char influxDbOrg[80];    // InfluxDB v2 organization id
     char influxDbBucket[80]; // InfluxDB v2 bucket name
                              // 416 bytes
-                             // Total = 16*2 + 64 + 416 = 512 bytes
-} EEPROM_LOCAL_VARS;
-extern EEPROM_LOCAL_VARS loc; // local working variables
+                             // Total = 64 + 416 = 480 bytes
+} EEPROM_CREDENTIALS;
+extern EEPROM_CREDENTIALS creds; // local credentials
 
 // Wifi and web server stuff
 extern void serverSetup();
