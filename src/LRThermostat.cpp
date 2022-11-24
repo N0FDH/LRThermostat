@@ -5,7 +5,7 @@
 
 // Features to add / bugs to fix
 // - Write main HTML status page including uptime and "on times"
-// - Sync to ntp if possible
+// - Sync to ntp if possible (why?)
 // - setpoint line on graphs should be conditional to MODE
 // - add a "this cycle run time" counter and add to display
 //   * keep on display after cycle finishes too
@@ -13,7 +13,8 @@
 //   - add ability to display last 8 on display
 //   - do some statistics too -- avg run time, run count last 24 hrs
 //   - Change WiFi monitoring to event driven
-// - add a total cycle count alongside the total runtime
+// DONE - add a total cycle count alongside the total runtime
+// DONE - change to 24 save to EEPROM instead of 6 hrs. No save if OFF.
 
 #include <Arduino.h>
 #include <Adafruit_BME280.h>
@@ -32,15 +33,22 @@
 
 #define DEBUG 1
 
+// EEPROM map:
+// 0x000-0x0FF: tcMenu (256 bytes)
+// 0x100-0x1FF: local vars (256 bytes)
+// 0x200-0x3FF: credentials (512 bytes)
+
 // Misc defines
 #define MENU_MAGIC_KEY 0xB00B
+#define LOC_MAGIC_KEY 0xB16B00B5
 #define EEPROM_LOCAL_VAR_ADDR 0x100    // Leave the lower half for menu storage
+#define EEPROM_CREDENTIALS_ADDR 0x200  // This leaves 256 bytes for local vars
 #define INACTIVITY_TIMEOUT 10000       // 10000 mS = 10 sec
 #define COMPRESSOR_DELAY (5 * 60)      // 5 minutes (counted in seconds)
 #define LOOP_1_SEC 1000                // 1000 mS = 1 sec
 #define T_10MIN_IN_SEC (10 * 60)       // 10 min (counted in seconds)
 #define T_1MIN_IN_SEC (1 * 60)         // 1 min (counted in seconds)
-#define T_6HOURS_IN_SEC (6 * 3600)     // 6 hours (counted in seconds)
+#define T_24HOURS_IN_SEC (24 * 3600)   // 24 hours (counted in seconds)
 #define T_100MS 100                    // 100 mS
 #define UINT32_ERASED_VALUE 0xFFFFFFFF // erased value in eeprom/flash
 #define A_KNOWN_GOOD_TIME 1600000000   // "9/13/2020 7:26:40 CST" in case you are wondering :)
@@ -120,10 +128,16 @@ char *pSsid = NULL;                          // Pointer to booted SSID
 EEPROM_LOCAL_VARS loc;            // local working variables
 EEPROM_LOCAL_VARS chgdVars = {0}; // Changes to be committed
 
+// The local credentials that are backed up in EEPROM
+EEPROM_CREDENTIALS creds; // credential working variables
+
 // Usage counters outside of the EEPROM 'loc' mirrored variables
 uint32_t heatSeconds = 0;
 uint32_t coolSeconds = 0;
 uint32_t dhSeconds = 0;
+uint32_t heatCount = 0;
+uint32_t coolCount = 0;
+uint32_t dhCount = 0;
 
 // setting PWM properties
 const uint32_t pwmFreq = 5000;
@@ -141,6 +155,7 @@ void initBme280();
 void readBme280(float_t *pP, float_t *pT, float_t *pH);
 void checkLocalVarChanges();
 void saveLocToEEPROM();
+void saveCredsToEEPROM();
 void saveMenuToEEPROM();
 void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
 void altDisplayFunction(unsigned int encoderValue, RenderPressMode clicked);
@@ -215,12 +230,57 @@ void setup()
     // Read up nvm local variables
     // Should really check return code here...
     EEPROM.readBytes(EEPROM_LOCAL_VAR_ADDR, &loc, sizeof(EEPROM_LOCAL_VARS));
-    Serial.printf("Menu+local data restored, 0x%04X\n", (uint32_t)EEPROM.readUShort(0x0));
+    EEPROM.readBytes(EEPROM_CREDENTIALS_ADDR, &creds, sizeof(EEPROM_CREDENTIALS));
+    Serial.printf("EEPROM data restored\n");
 
     // Update boot related items in nvm. These changes will get pushed to EEPROM by
     // checkLocalVarChanges() in the main loop.
     loc.powerCycleCnt++;
     loc.bootTime = 0; // set to zero now, will update ASAP
+
+    // Convert old EEPROM format to new format & initialize cycle counters
+    // Eventually most of this can be deleted after Loren's LRTs are updated.
+    if (loc.locMagic != LOC_MAGIC_KEY)
+    {
+        // Since this change moved where wifi and influx credentials are stored in EEPROM,
+        // copy old to new location and save out.
+        memcpy(creds.ssid, &loc.heatCount, 32 * 2 + 128 * 2 + 80 * 2);
+
+        // Save old stuff to new location
+        saveCredsToEEPROM();
+
+        Serial.printf("Credentials moved to new location in EEPROM\n");
+
+        // Set the rest of the old area to the 'erased value'. Is there a way to erase? Dunno
+        memset(loc.pad0, 0xFF, 212);
+
+        // New variables introduced with this change.
+        loc.heatCount = 0;
+        loc.coolCount = 0;
+        loc.dhCount = 0;
+        loc.locMagic = LOC_MAGIC_KEY;
+    }
+
+#if 0
+    for (int i = 0; i < 256; i += 16)
+    {
+        char *p = (char *)&loc;
+        Serial.printf("%02x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
+                      i, p[i + 0], p[i + 1], p[i + 2], p[i + 3],
+                      p[i + 4], p[i + 5], p[i + 6], p[i + 7],
+                      p[i + 8], p[i + 9], p[i + 10], p[i + 11],
+                      p[i + 12], p[i + 13], p[i + 14], p[i + 15]);
+    }
+    for (int i = 0; i < 512; i += 16)
+    {
+        char *p = (char *)&creds;
+        Serial.printf("%x: %c %c %c %c %c %c %c %c %c %c %c %c %c %c %c %c\n",
+                      i, p[i + 0], p[i + 1], p[i + 2], p[i + 3],
+                      p[i + 4], p[i + 5], p[i + 6], p[i + 7],
+                      p[i + 8], p[i + 9], p[i + 10], p[i + 11],
+                      p[i + 12], p[i + 13], p[i + 14], p[i + 15]);
+    }
+#endif
 
     // Initialize the on time counters
     if (loc.heatSeconds == UINT32_ERASED_VALUE)
@@ -269,12 +329,6 @@ void setup()
     // Get time
     timeSetup();
 
-    // HACK IN A WAY TO STORE BME280 RE-INITS
-    if (loc.pad1 == UINT32_ERASED_VALUE)
-    {
-        loc.pad1 = 0;
-    }
-
     // influx
     influxdbSetup();
 }
@@ -284,7 +338,7 @@ void loop()
 {
     uint32_t time1sec = millis() + LOOP_1_SEC;
     uint32_t time10min = 3;             // countdown
-    uint32_t time6hr = T_6HOURS_IN_SEC; // countdown
+    uint32_t time24hr = T_24HOURS_IN_SEC; // countdown
     uint32_t time1min = T_1MIN_IN_SEC;
     uint32_t curTime;
     uint32_t wifiRetry = 0;
@@ -428,12 +482,17 @@ void loop()
                 time10min = T_10MIN_IN_SEC;
             }
 
-            // Once every 6 hours, add in the control usage seconds.
+            // Once every 24 hours, add in the control usage seconds.
             // This is delayed to minimize writes to the EEPROM.
-            if (--time6hr == 0)
+            // Condition the save on mode != OFF.
+            if (--time24hr == 0)
             {
-                time6hr = T_6HOURS_IN_SEC;
-                accumulateUsage();
+                time24hr = T_24HOURS_IN_SEC;
+
+                if (mode != NO_MODE)
+                {
+                    accumulateUsage();
+                }
 
                 // Note: the loc vars get committed to EPROM below
             }
@@ -545,6 +604,14 @@ void saveLocToEEPROM()
     lclVarChgTime = 0;
 }
 
+// Save credentials to EEPROM
+void saveCredsToEEPROM()
+{
+    EEPROM.writeBytes(EEPROM_CREDENTIALS_ADDR, &creds, sizeof(EEPROM_CREDENTIALS));
+    EEPROM.commit();
+    Serial.printf("Credentials saved\n");
+}
+
 // Save tcMenu variables to EEPROM
 void saveMenuToEEPROM()
 {
@@ -561,9 +628,16 @@ void accumulateUsage()
     loc.heatSeconds += heatSeconds;
     loc.coolSeconds += coolSeconds;
     loc.dhSeconds += dhSeconds;
+    loc.heatCount += heatCount;
+    loc.coolCount += coolCount;
+    loc.dhCount += dhCount;
+
     heatSeconds = 0;
     coolSeconds = 0;
     dhSeconds = 0;
+    heatCount = 0;
+    coolCount = 0;
+    dhCount = 0;
 }
 
 #define BARO_IDX_NOW (cbBaro.size() - 1)
@@ -887,9 +961,6 @@ void readBme280(float_t *pP, float_t *pT, float_t *pH)
                 {
                     // Re-init
                     initBme280();
-
-                    // HACK IN A WAY TO CAPTURE RE-INITS
-                    loc.pad1++;
                 }
             }
             else
@@ -917,6 +988,7 @@ void heatControl()
     else if ((ctlState == OFF) && (curTemp < (set - hysteresis)))
     {
         ctlState = ON;
+        heatCount++;
         HEAT(ON);
     }
     else
@@ -956,6 +1028,7 @@ void acControl()
         if (!wait)
         {
             ctlState = ON;
+            coolCount++;
             COOL(ON);
         }
     }
@@ -1022,6 +1095,7 @@ void dehumidifyControl()
             {
                 ctlState = ON;
                 DH(ON);
+                dhCount++;
                 minRunTimeDelay = dhMinRunTime;
                 ctlDebounce = CTL_DEBOUNCE_CNT;
             }
@@ -1148,6 +1222,9 @@ void CALLBACK_FUNCTION ModeCallback(int id)
 //    int32_t val = menuModeEnum.getCurrentValue();
 //    Serial.printf("CB - Mode: %d\n", val);
     menuChg = TRUE;
+
+    // Save accumulated runtime data when mode is changed to tie up loose ends.
+    accumulateUsage();
 }
 
 void CALLBACK_FUNCTION FanCallback(int id)
@@ -1230,6 +1307,9 @@ char *formatUsageCounterWithDays(uint32_t sec, char *buf)
 
 void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
 {
+    uint16_t x;
+    uint16_t y;
+
     accumulateUsage();
     saveLocToEEPROM();
 
@@ -1240,10 +1320,30 @@ void CALLBACK_FUNCTION DisplayUsageCntrs(int id)
     char buf[32];
     ctime_r((const time_t *)&loc.lastClear, buf);
     tft.printf("Accumulated time since:\n%s\n", &buf[4]);
-    tft.printf("Heat on %s\n", formatUsageCounter(loc.heatSeconds, buf));
-    tft.printf("A/C  on %s\n", formatUsageCounter(loc.coolSeconds, buf));
-    tft.printf("D/H  on %s\n", formatUsageCounter(loc.dhSeconds, buf));
+
+    tft.printf("Heat:");
+    x = tft.getCursorX() + 5; // All following are based on this X
+    y = tft.getCursorY();
+    tft.setCursor(x, y, 2);
+    tft.printf("%s", formatUsageCounter(loc.heatSeconds, buf));
+    tft.setCursor(x + 80, y, 2);
+    tft.printf("%u\n", loc.heatCount);
+
+    tft.printf("A/C:");
+    y = tft.getCursorY();
+    tft.setCursor(x, y, 2);
+    tft.printf("%s", formatUsageCounter(loc.coolSeconds, buf));
+    tft.setCursor(x + 80, y, 2);
+    tft.printf("%u\n", loc.coolCount);
+
+    tft.printf("D/H:");
+    y = tft.getCursorY();
+    tft.setCursor(x, y, 2);
+    tft.printf("%s", formatUsageCounter(loc.dhSeconds, buf));
+    tft.setCursor(x + 80, y, 2);
+    tft.printf("%u\n", loc.dhCount);
 }
+
 void GatherSysInfo(bool unused)
 {
     tft.fillScreen(TFT_BLACK);
@@ -1294,10 +1394,6 @@ void GatherSysInfo(bool unused)
 
     // FWV
     tft.printf("PCB-FW: %s-%s\n", PCB_DISP, FW_VERSION);
-
-    // HACK IN A WAY TO STORE BME280 RE-INITS
-    // BME280 forced re-inits
-    tft.printf("BME280 re-inits: %u\n", loc.pad1);
 }
 
 void CALLBACK_FUNCTION DisplaySysInfo(int id)
@@ -1347,6 +1443,13 @@ void CALLBACK_FUNCTION ClearUsageCntrs(int id)
     loc.heatSeconds = 0;
     loc.coolSeconds = 0;
     loc.dhSeconds = 0;
+
+    heatCount = 0;
+    coolCount = 0;
+    dhCount = 0;
+    loc.heatCount = 0;
+    loc.coolCount = 0;
+    loc.dhCount = 0;
 
     time_t now;
     time(&now);
@@ -1673,20 +1776,20 @@ void wifiSetup()
     //   This should be a one time occurance only.
 
     // Check if anything stored in EEPROM
-    if (loc.ssid[0] == 0xFF)
+    if (creds.ssid[0] == 0xFF)
     {
         // EEPROM is empty, store fw credentials to EEPROM.
         // This is the one time occurance mentioned above.
         Serial.println("Copy FW WiFi creds to EEPROM - first time");
 
-        strncpy(loc.ssid, ssid, sizeof(loc.ssid) - 1);
-        strncpy(loc.password, password, sizeof(loc.password) - 1);
+        strncpy(creds.ssid, ssid, sizeof(creds.ssid) - 1);
+        strncpy(creds.password, password, sizeof(creds.password) - 1);
 
         // Make sure the field is null terminated so we don't have a runaway buffer.
         // This only needs to be done once as well, as long as we only copy at most
         // "sizeof(a)-1" bytes.
-        loc.ssid[sizeof(loc.ssid) - 1] = 0;         // make sure null terminated
-        loc.password[sizeof(loc.password) - 1] = 0; // make sure null terminated
+        creds.ssid[sizeof(creds.ssid) - 1] = 0;         // make sure null terminated
+        creds.password[sizeof(creds.password) - 1] = 0; // make sure null terminated
     }
 
     // Now start normal checks for button presses
@@ -1697,8 +1800,8 @@ void wifiSetup()
             Serial.println("Copy FW WiFi creds to EEPROM - UP pressed");
 
             // Copy to EEPROM (UPdate)
-            strncpy(loc.ssid, ssid, sizeof(loc.ssid) - 1);
-            strncpy(loc.password, password, sizeof(loc.password) - 1);
+            strncpy(creds.ssid, ssid, sizeof(creds.ssid) - 1);
+            strncpy(creds.password, password, sizeof(creds.password) - 1);
         }
         Serial.println("Using FW WiFi creds");
         pSsid = (char *)ssid;
@@ -1707,28 +1810,31 @@ void wifiSetup()
     else
     {
         Serial.println("Using EEPROM WiFi creds");
-        pSsid = loc.ssid;
-        WiFi.begin(loc.ssid, loc.password);
+        pSsid = creds.ssid;
+        WiFi.begin(creds.ssid, creds.password);
     }
 
     Serial.printf("Connecting to: %s\n", pSsid);
 }
 
 //*********************************************************************************************
-void copyInfluxToEEPROM()
+void copyInfluxCredsToEEPROM()
 {
-    strncpy(loc.influxDbUrl, INFLUXDB_URL, sizeof(loc.influxDbUrl));
-    strncpy(loc.influxDbOrg, INFLUXDB_ORG, sizeof(loc.influxDbOrg));
-    strncpy(loc.influxDbBucket, INFLUXDB_BUCKET, sizeof(loc.influxDbBucket));
-    strncpy(loc.influxDbToken, INFLUXDB_TOKEN, sizeof(loc.influxDbToken));
+    strncpy(creds.influxDbUrl, INFLUXDB_URL, sizeof(creds.influxDbUrl));
+    strncpy(creds.influxDbOrg, INFLUXDB_ORG, sizeof(creds.influxDbOrg));
+    strncpy(creds.influxDbBucket, INFLUXDB_BUCKET, sizeof(creds.influxDbBucket));
+    strncpy(creds.influxDbToken, INFLUXDB_TOKEN, sizeof(creds.influxDbToken));
 
     // Make sure the field is null terminated so we don't have a runaway buffer.
     // This only needs to be done once as well, as long as we only copy at most
     // "sizeof(a)-1" bytes.
-    loc.influxDbUrl[sizeof(loc.influxDbUrl) - 1] = 0;
-    loc.influxDbOrg[sizeof(loc.influxDbOrg) - 1] = 0;
-    loc.influxDbBucket[sizeof(loc.influxDbBucket) - 1] = 0;
-    loc.influxDbToken[sizeof(loc.influxDbToken) - 1] = 0;
+    creds.influxDbUrl[sizeof(creds.influxDbUrl) - 1] = 0;
+    creds.influxDbOrg[sizeof(creds.influxDbOrg) - 1] = 0;
+    creds.influxDbBucket[sizeof(creds.influxDbBucket) - 1] = 0;
+    creds.influxDbToken[sizeof(creds.influxDbToken) - 1] = 0;
+
+    // Save it out
+    saveCredsToEEPROM();
 }
 
 void influxdbSetup()
@@ -1748,10 +1854,10 @@ void influxdbSetup()
     //   This should be a one time occurance only.
 
     // Check if anything stored in EEPROM
-    if (*(uint32_t *)(&loc.influxDbToken) == UINT32_ERASED_VALUE)
+    if (*(uint32_t *)(&creds.influxDbToken) == UINT32_ERASED_VALUE)
     {
         Serial.println("Copy FW influx creds to EEPROM - first time");
-        copyInfluxToEEPROM();
+        copyInfluxCredsToEEPROM();
         copy = 1;
     }
     else
@@ -1764,7 +1870,7 @@ void influxdbSetup()
                 Serial.println("Copy FW influx creds to EEPROM - UP pressed");
 
                 // Copy to EEPROM (UPdate)
-                copyInfluxToEEPROM();
+                copyInfluxCredsToEEPROM();
                 copy = 1;
             }
         }
@@ -1779,13 +1885,13 @@ void influxdbSetup()
         Serial.println("Using EEPROM influx creds");
     }
 
-    // Serial.println(loc.influxDbUrl);
+    // Serial.println(creds.influxDbUrl);
 
     // Setup connection
     if (strcmp(INFLUXDB_URL, "URL") != 0)
     {
-        influxdb.setConnectionParams(loc.influxDbUrl, loc.influxDbOrg, loc.influxDbBucket,
-                                     loc.influxDbToken, InfluxDbCloud2CACert);
+        influxdb.setConnectionParams(creds.influxDbUrl, creds.influxDbOrg, creds.influxDbBucket,
+                                     creds.influxDbToken, InfluxDbCloud2CACert);
         influxdbUp = TRUE;
     }
     else
