@@ -66,6 +66,8 @@
 #define DH(a) digitalWrite(DH_RELAY, ((a) ? (ON) : (OFF)))
 #endif
 
+#define TOGGLE_LED() digitalWrite(ONBOARD_LED, !digitalRead(ONBOARD_LED))
+
 // **************************** InfluxDB *****************************
 // InfluxDB client instance
 InfluxDBClient influxdb;
@@ -303,6 +305,7 @@ void setup()
     HEAT(OFF);
     pinMode(AC_RELAY, OUTPUT);
     COOL(OFF);
+    pinMode(ONBOARD_LED, OUTPUT);
 
     // Switches
     pinMode(UP_SWITCH, INPUT_PULLUP);
@@ -383,6 +386,9 @@ void loop()
         if (time1sec <= curTime)
         {
             time1sec += LOOP_1_SEC;
+
+            // flip LED
+            TOGGLE_LED();
 
             // Read sensor data
             readSensors();

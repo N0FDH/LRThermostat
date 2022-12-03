@@ -17,6 +17,7 @@
 #define BACK_LIGHT 25       // GPIO
 #define DH_RELAY HEAT_RELAY // DH always uses HEAT relay
 #define ENTER_SWITCH 4      // GPIO
+#define ONBOARD_LED 2       // GPIO
 
 #if (PCB_VERSION == 0)
 #define UP_SWITCH 13   // GPIO
