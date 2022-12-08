@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include "LRThermostat.h"
 #include "LRThermostat_menu.h"
 
 extern uint16_t splash[];
