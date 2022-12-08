@@ -210,6 +210,9 @@ void setup()
     // tcMenu
     setupMenu();
 
+    // Splash screen
+    drawSplash(5);
+
     // Fire up serial port
     Serial.begin(115200);
 

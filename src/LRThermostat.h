@@ -149,6 +149,8 @@ inline void graphHumidity(GRAPH_CNT count)
     drawGraph(SN_HUMD, count);
 }
 
+void drawSplash(uint32_t seconds);
+
 #define HIST_CNT (24 * 6) // every 10 min, 24 hrs total
 extern CircularBuffer<int16_t, HIST_CNT> cbBaro;
 extern CircularBuffer<int16_t, HIST_CNT> cbHumd;
