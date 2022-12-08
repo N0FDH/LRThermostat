@@ -47,7 +47,6 @@ void drawSplash(uint32_t seconds)
         delay(5);
     }
 #endif
-    Serial.printf("Pixel 0,0 = 0x%04X\n", tft.readPixel(0, 0));
     delay(1000 * seconds);
 }
 
