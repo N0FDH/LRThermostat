@@ -1,7 +1,10 @@
 #include <Arduino.h>
+#include "LRThermostat.h"
 #include "LRThermostat_menu.h"
 
 extern uint16_t splash[];
+
+#define SCOPE_TIMER 0
 
 void drawSplash(uint32_t seconds)
 {
@@ -11,14 +14,40 @@ void drawSplash(uint32_t seconds)
     w = splash[i++];
     h = splash[i++];
 
-    for (y = 0; y < h; y++)
+#if SCOPE_TIMER
+    while (1)
     {
-        for (x = 0; x < w; x++)
+        i = 2;
+        SCOPE(1);
+#endif
+#if 0
+        // 60 mS with startWrite()/endWrite(), 205 mS without
+        tft.startWrite();
+        for (y = 0; y < h; y++)
         {
-            tft.drawPixel(x, y, splash[i++]);
+            for (x = 0; x < w; x++)
+            {
+                tft.drawPixel(x, y, splash[i++]);
+            }
         }
+        tft.endWrite();
+#elif 1
+    // 8 mS using DMA
+    tft.initDMA(true);
+    tft.setSwapBytes(1);
+    tft.pushImageDMA(0, 0, w, h, &splash[i]);
+    tft.dmaWait();
+#else
+    // 9 mS using this method
+    tft.setSwapBytes(1);
+    tft.pushImage(0, 0, w, h, &splash[i]);
+#endif
+#if SCOPE_TIMER
+        SCOPE(0);
+        delay(5);
     }
-
+#endif
+    Serial.printf("Pixel 0,0 = 0x%04X\n", tft.readPixel(0, 0));
     delay(1000 * seconds);
 }
 

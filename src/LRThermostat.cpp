@@ -202,6 +202,10 @@ void (*altDispRefreshFunc)(GRAPH_CNT c) = NULL;
 // Main Arduino setup function
 void setup()
 {
+    // Scope debug pin (do this first so it is available)
+    pinMode(SCOPE_PIN, OUTPUT);
+    SCOPE(LOW);
+
     // Initialize the EEPROM class to 1024 bytes of storage
     // 0x000-0x0FF  tcMenu
     // 0x100-0x3FF  local vars
@@ -210,11 +214,11 @@ void setup()
     // tcMenu
     setupMenu();
 
-    // Splash screen
-    drawSplash(5);
-
     // Fire up serial port
     Serial.begin(115200);
+
+    // Splash screen
+    drawSplash(5);
 
     // Menu timeout
     renderer.setResetIntervalTimeSeconds(5);
@@ -324,10 +328,6 @@ void setup()
     pinMode(BACK_LIGHT, OUTPUT);
     digitalWrite(BACK_LIGHT, TRUE);
 #endif
-
-    // Scope debug pin
-    pinMode(SCOPE_PIN, OUTPUT);
-    SCOPE(LOW);
 
     // Wifi
     wifiSetup();
