@@ -26,7 +26,7 @@
 #include <ESPmDNS.h>
 #include <CircularBuffer.h>
 #include "LRThermostat.h"
-#include "LRThermostat_menu.h"
+#include "tcMenu/LRThermostat_menu.h"
 #include "WifiCredentials.h"
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
@@ -218,7 +218,7 @@ void setup()
     Serial.begin(115200);
 
     // Splash screen
-    drawSplash(5);
+    drawSplash(7);
 
     // Menu timeout
     renderer.setResetIntervalTimeSeconds(5);

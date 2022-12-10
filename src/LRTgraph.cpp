@@ -9,7 +9,7 @@
 
 #include <Arduino.h>
 #include "LRThermostat.h"
-#include "LRThermostat_menu.h"
+#include "tcMenu/LRThermostat_menu.h"
 
 void graph(TFT_eSPI &d,
            float_t x, float_t y,
