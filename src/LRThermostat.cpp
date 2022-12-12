@@ -33,11 +33,6 @@
 
 #define DEBUG 1
 
-// EEPROM map:
-// 0x000-0x0FF: tcMenu (256 bytes)
-// 0x100-0x1FF: local vars (256 bytes)
-// 0x200-0x3FF: credentials (512 bytes)
-
 // Misc defines
 #define MENU_MAGIC_KEY 0xB00B
 #define LOC_MAGIC_KEY 0xB16B00B5
@@ -89,7 +84,7 @@ float curTemp = 0; // BME280
 float curHumd = 0; // BME280
 float curBaro = 0; // BME280
 
-//#define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places
+// #define BARO_FLOAT_TO_INT(a) ((int32_t)(((a) + 0.0005) * 1000)) // keep integer + 3 decimal places
 #define BARO_FLOAT_TO_INT(a) ((int32_t)(round((a)*1000))) // keep integer + 3 decimal places
 #define TEMP_FLOAT_TO_INT(a) ((int32_t)(round((a)*100)))  // keep integer + 2 decimal places
 #define HUMD_FLOAT_TO_INT(a) TEMP_FLOAT_TO_INT(a)
@@ -207,8 +202,9 @@ void setup()
     SCOPE(LOW);
 
     // Initialize the EEPROM class to 1024 bytes of storage
-    // 0x000-0x0FF  tcMenu
-    // 0x100-0x3FF  local vars
+    // 0x000-0x0FF: tcMenu (256 bytes)
+    // 0x100-0x1FF: local vars (256 bytes)
+    // 0x200-0x3FF: credentials (512 bytes)
     EEPROM.begin(0x400);
 
     // tcMenu
@@ -218,7 +214,7 @@ void setup()
     Serial.begin(115200);
 
     // Splash screen
-    drawSplash(7);
+    drawSplash(10);
 
     // Menu timeout
     renderer.setResetIntervalTimeSeconds(5);
@@ -343,7 +339,7 @@ void setup()
 void loop()
 {
     uint32_t time1sec = millis() + LOOP_1_SEC;
-    uint32_t time10min = 3;             // countdown
+    uint32_t time10min = 3;               // countdown
     uint32_t time24hr = T_24HOURS_IN_SEC; // countdown
     uint32_t time1min = T_1MIN_IN_SEC;
     uint32_t curTime;
@@ -1181,7 +1177,7 @@ void configEncoderForMode()
     // Encoder goes from 0 - 99 (ENC_MAX). Encoder is set to current set point
     switches.changeEncoderPrecision(ENC_MAX, pSetPt ? ENC_MAX - *pSetPt : 0);
 
-//    Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
+    //    Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
 }
 
 void shutDownPrevMode(bool force)
@@ -1228,8 +1224,8 @@ void CALLBACK_FUNCTION ExitCallback(int id)
 // item has been changed, so we know when to save to EEPROM.
 void CALLBACK_FUNCTION ModeCallback(int id)
 {
-//    int32_t val = menuModeEnum.getCurrentValue();
-//    Serial.printf("CB - Mode: %d\n", val);
+    //    int32_t val = menuModeEnum.getCurrentValue();
+    //    Serial.printf("CB - Mode: %d\n", val);
     menuChg = TRUE;
 
     // Save accumulated runtime data when mode is changed to tie up loose ends.
@@ -1238,50 +1234,50 @@ void CALLBACK_FUNCTION ModeCallback(int id)
 
 void CALLBACK_FUNCTION FanCallback(int id)
 {
-//    int32_t val = menuFanEnum.getCurrentValue();
-//    Serial.printf("CB - Fan: %d\n", val);
+    //    int32_t val = menuFanEnum.getCurrentValue();
+    //    Serial.printf("CB - Fan: %d\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION MinRunTimeCallback(int id)
 {
-//    float val = menuMinRunTime.getAsFloatingPointValue();
-//    Serial.printf("CB - DhMinT: %0.1f\n", val);
+    //    float val = menuMinRunTime.getAsFloatingPointValue();
+    //    Serial.printf("CB - DhMinT: %0.1f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION HumidityCalCallback(int id)
 {
-//    float val = menuHumidityCal.getLargeNumber()->getAsFloat();
-//    Serial.printf("CB - DhCal: %0.2f\n", val);
+    //    float val = menuHumidityCal.getLargeNumber()->getAsFloat();
+    //    Serial.printf("CB - DhCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION HumdHysteresisCallback(int id)
 {
-//    float val = menuHumdHysteresis.getLargeNumber()->getAsFloat();
-//    Serial.printf("CB - DhHys: %0.2f\n", val);
+    //    float val = menuHumdHysteresis.getLargeNumber()->getAsFloat();
+    //    Serial.printf("CB - DhHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION TempCalCallback(int id)
 {
-//    float val = menuTemperatureCal.getLargeNumber()->getAsFloat();
-//    Serial.printf("CB - HeatCal: %0.2f\n", val);
+    //    float val = menuTemperatureCal.getLargeNumber()->getAsFloat();
+    //    Serial.printf("CB - HeatCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION HeatingHysteresisCallback(int id)
 {
-//    float val = menuHeatingHysteresis.getLargeNumber()->getAsFloat();
-//    Serial.printf("CB - HeatHys: %0.2f\n", val);
+    //    float val = menuHeatingHysteresis.getLargeNumber()->getAsFloat();
+    //    Serial.printf("CB - HeatHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION CoolingHysteresisCallback(int id)
 {
-//    float val = menuCoolingHysteresis.getLargeNumber()->getAsFloat();
-//    Serial.printf("CB - CoolHys: %0.2f\n", val);
+    //    float val = menuCoolingHysteresis.getLargeNumber()->getAsFloat();
+    //    Serial.printf("CB - CoolHys: %0.2f\n", val);
     menuChg = TRUE;
 }
 
@@ -1389,7 +1385,7 @@ void GatherSysInfo(bool unused)
     tft.println("IP:  " + WiFi.localIP().toString());
 
     // MAC
-//    tft.println("MAC: " + WiFi.macAddress());
+    //    tft.println("MAC: " + WiFi.macAddress());
 
     // WiFi Strength
     if (WiFi.status() == WL_CONNECTED)
@@ -1498,15 +1494,15 @@ void CALLBACK_FUNCTION SafeShutdown(int id)
 
 void CALLBACK_FUNCTION BaroSteadyUpLimitCallback(int id)
 {
-//    float val = menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat();
-//    Serial.printf("CB - BaroSteady: %0.4f\n", val);
+    //    float val = menuBaroSteadyUpLimit.getLargeNumber()->getAsFloat();
+    //    Serial.printf("CB - BaroSteady: %0.4f\n", val);
     menuChg = TRUE;
 }
 
 void CALLBACK_FUNCTION PressureCalCallback(int id)
 {
-//    float val = menuPressureCal.getLargeNumber()->getAsFloat();
-//    Serial.printf("CB - PressCal: %0.2f\n", val);
+    //    float val = menuPressureCal.getLargeNumber()->getAsFloat();
+    //    Serial.printf("CB - PressCal: %0.2f\n", val);
     menuChg = TRUE;
 }
 

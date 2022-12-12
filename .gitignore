@@ -12,3 +12,4 @@ src/LRThermostat.cpp-save
 src/graph.txt
 .gitignore
 src/mirabelle1.cpp
+tools/Iron Fireman/ironfiremanV*
