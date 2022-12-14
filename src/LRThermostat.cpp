@@ -218,14 +218,14 @@ void setup()
     // Splash screen
     drawSplash(10);
 
+    // Main sensor setup & initialization
+    initBme280();
+
     // Menu timeout
     renderer.setResetIntervalTimeSeconds(5);
 
     // Set up the timeout callback
     renderer.setResetCallback(resetCallback);
-
-    // Main sensor setup & initialization
-    initBme280();
 
     // Load initial menu values
     menuMgr.load(MENU_MAGIC_KEY);
@@ -240,74 +240,29 @@ void setup()
     EEPROM.readBytes(EEPROM_CREDENTIALS_ADDR, &creds, sizeof(EEPROM_CREDENTIALS));
     Serial.printf("EEPROM data restored\n");
 
+    // Initialize local variables
+    if (loc.locMagic != LOC_MAGIC_KEY)
+    {
+        loc.heatSetPt = 65;           // heat  0-100 is range for all setPts
+        loc.acSetPt = 70;             // A/C
+        loc.dhSetPt = 50;             // dehumidifier
+        loc.powerCycleCnt = 0;        // put something in an otherwise empty pad :)
+        loc.bootTime = 0;             // epoch time() of boot
+        loc.lastClear = 0;            // epoch time() of last clear of "on time" counters
+        loc.heatSeconds = 0;          // total heat "on" time
+        loc.coolSeconds = 0;          // total a/c "on" time
+        loc.dhSeconds = 0;            // total dh "on" time
+        loc.locMagic = LOC_MAGIC_KEY; // Magic id of this 'loc' format
+        loc.heatCount = 0;            // total heat "on" time
+        loc.coolCount = 0;            // total a/c "on" time
+        loc.dhCount = 0;              // total dh "on" time
+    }
+
     // Update boot related items in nvm. These changes will get pushed to EEPROM by
     // checkLocalVarChanges() in the main loop.
     loc.powerCycleCnt++;
-    loc.bootTime = 0; // set to zero now, will update ASAP
+    loc.bootTime = 0; // set to zero now, will update ASAP    // Setup the rest of the hardware
 
-#if 1
-    // Convert old EEPROM format to new format & initialize cycle counters
-    // Eventually most of this can be deleted after Loren's LRTs are updated.
-    if (loc.locMagic != LOC_MAGIC_KEY)
-    {
-        // Since this change moved where wifi and influx credentials are stored in EEPROM,
-        // copy old to new location and save out.
-        memcpy(creds.ssid, &loc.heatCount, 32 * 2 + 128 * 2 + 80 * 2);
-
-        // Save old stuff to new location
-        saveCredsToEEPROM();
-
-        Serial.printf("Credentials moved to new location in EEPROM\n");
-
-        // Set the rest of the old area to the 'erased value'. Is there a way to erase? Dunno
-        memset(loc.pad0, 0xFF, 212);
-
-        // New variables introduced with this change.
-        loc.heatCount = 0;
-        loc.coolCount = 0;
-        loc.dhCount = 0;
-        loc.locMagic = LOC_MAGIC_KEY;
-    }
-#endif
-#if 0
-    for (int i = 0; i < 256; i += 16)
-    {
-        char *p = (char *)&loc;
-        Serial.printf("%02x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n",
-                      i, p[i + 0], p[i + 1], p[i + 2], p[i + 3],
-                      p[i + 4], p[i + 5], p[i + 6], p[i + 7],
-                      p[i + 8], p[i + 9], p[i + 10], p[i + 11],
-                      p[i + 12], p[i + 13], p[i + 14], p[i + 15]);
-    }
-    for (int i = 0; i < 512; i += 16)
-    {
-        char *p = (char *)&creds;
-        Serial.printf("%x: %c %c %c %c %c %c %c %c %c %c %c %c %c %c %c %c\n",
-                      i, p[i + 0], p[i + 1], p[i + 2], p[i + 3],
-                      p[i + 4], p[i + 5], p[i + 6], p[i + 7],
-                      p[i + 8], p[i + 9], p[i + 10], p[i + 11],
-                      p[i + 12], p[i + 13], p[i + 14], p[i + 15]);
-    }
-#endif
-
-    // Initialize the on time counters
-    if (loc.heatSeconds == UINT32_ERASED_VALUE)
-    {
-        loc.heatSeconds = 0;
-        loc.heatCount = 0;
-    }
-    if (loc.coolSeconds == UINT32_ERASED_VALUE)
-    {
-        loc.coolSeconds = 0;
-        loc.coolCount = 0;
-    }
-    if (loc.dhSeconds == UINT32_ERASED_VALUE)
-    {
-        loc.dhSeconds = 0;
-        loc.dhCount = 0;
-    }
-
-    // Setup the rest of the hardware
     pinMode(FAN_RELAY, OUTPUT);
     FAN(OFF);
     pinMode(HEAT_RELAY, OUTPUT);
