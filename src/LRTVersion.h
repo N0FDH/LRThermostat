@@ -9,17 +9,17 @@
 // Uncomment only ONE of the following.
 // This selects what type of hardware you are targeting.
 //============================
-//#define PROTOTYPE         // All prototypes
-//#define PCB_V1_GREENTAB2  // Loren's basement
-//#define PCB_V1_GREENTAB3  // Randy's & Loren's heater
-#define PCB_V1_REDTAB // Randy's basement
+#define PROTOTYPE // All prototypes
+// #define PCB_V1_GREENTAB2 // Loren's basement
+// #define PCB_V1_GREENTAB3 // Loren's garage
+// #define PCB_V1_REDTAB // Randy's basement & garage
 //============================
 
 // Special reconfiguration for Randy's cabin (garage) heat and dehumidifier controller
 #define DHM_USES_AC_RELAY
 
 // FW version
-#define FW_VERSION "1.60"
+#define FW_VERSION "1.61"
 
 //==============================================================================
 // *** DON'T CHANGE ANYTHING BELOW THIS LINE ***

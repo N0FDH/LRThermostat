@@ -24,7 +24,7 @@ GraphicsDeviceRenderer renderer(30, applicationInfo.name, &tftDrawable);
 const PROGMEM AnyMenuInfo minfoSafeShutdown = { "Safe Shutdown", 78, 0xffff, 0, SafeShutdown };
 ActionMenuItem menuSafeShutdown(&minfoSafeShutdown, NULL);
 RENDERING_CALLBACK_NAME_INVOKE(fnBaroSteadyUpLimitRtCall, largeNumItemRenderFn, "Pr Steady", 64, BaroSteadyUpLimitCallback)
-EditableLargeNumberMenuItem menuBaroSteadyUpLimit(fnBaroSteadyUpLimitRtCall, 92, 5, 4, false, NULL);
+EditableLargeNumberMenuItem menuBaroSteadyUpLimit(fnBaroSteadyUpLimitRtCall, LargeFixedNumber(5, 4, 0U, 0U, false), 92, false, NULL);
 const PROGMEM AnalogMenuInfo minfoMinRunTime = { "DH Min RT", 91, 10, 180, MinRunTimeCallback, 0, 1, " min" };
 AnalogMenuItem menuMinRunTime(&minfoMinRunTime, 0, &menuBaroSteadyUpLimit);
 RENDERING_CALLBACK_NAME_INVOKE(fnMiscellaneousRtCall, backSubItemRenderFn, "Miscellaneous", -1, NO_CALLBACK)
@@ -32,21 +32,21 @@ const PROGMEM SubMenuInfo minfoMiscellaneous = { "Miscellaneous", 90, 0xffff, 0,
 BackMenuItem menuBackMiscellaneous(fnMiscellaneousRtCall, &menuMinRunTime);
 SubMenuItem menuMiscellaneous(&minfoMiscellaneous, &menuBackMiscellaneous, NULL);
 RENDERING_CALLBACK_NAME_INVOKE(fnPressureCalRtCall, largeNumItemRenderFn, "Pressure", 48, PressureCalCallback)
-EditableLargeNumberMenuItem menuPressureCal(fnPressureCalRtCall, 85, 4, 2, true, NULL);
+EditableLargeNumberMenuItem menuPressureCal(fnPressureCalRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 85, true, NULL);
 RENDERING_CALLBACK_NAME_INVOKE(fnTemperatureCalRtCall, largeNumItemRenderFn, "Temperature", 32, TempCalCallback)
-EditableLargeNumberMenuItem menuTemperatureCal(fnTemperatureCalRtCall, 84, 4, 2, true, &menuPressureCal);
+EditableLargeNumberMenuItem menuTemperatureCal(fnTemperatureCalRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 84, true, &menuPressureCal);
 RENDERING_CALLBACK_NAME_INVOKE(fnHumidityCalRtCall, largeNumItemRenderFn, "Humidity", 16, HumidityCalCallback)
-EditableLargeNumberMenuItem menuHumidityCal(fnHumidityCalRtCall, 83, 4, 2, true, &menuTemperatureCal);
+EditableLargeNumberMenuItem menuHumidityCal(fnHumidityCalRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 83, true, &menuTemperatureCal);
 RENDERING_CALLBACK_NAME_INVOKE(fnSensorCalibrationRtCall, backSubItemRenderFn, "Sensor Calibration", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoSensorCalibration = { "Sensor Calibration", 82, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackSensorCalibration(fnSensorCalibrationRtCall, &menuHumidityCal);
 SubMenuItem menuSensorCalibration(&minfoSensorCalibration, &menuBackSensorCalibration, &menuMiscellaneous);
 RENDERING_CALLBACK_NAME_INVOKE(fnHumdHysteresisRtCall, largeNumItemRenderFn, "Dehumidifying", 24, HumdHysteresisCallback)
-EditableLargeNumberMenuItem menuHumdHysteresis(fnHumdHysteresisRtCall, 89, 4, 2, false, NULL);
+EditableLargeNumberMenuItem menuHumdHysteresis(fnHumdHysteresisRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 89, false, NULL);
 RENDERING_CALLBACK_NAME_INVOKE(fnHeatingHysteresisRtCall, largeNumItemRenderFn, "Heating", 40, HeatingHysteresisCallback)
-EditableLargeNumberMenuItem menuHeatingHysteresis(fnHeatingHysteresisRtCall, 88, 4, 2, false, &menuHumdHysteresis);
+EditableLargeNumberMenuItem menuHeatingHysteresis(fnHeatingHysteresisRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 88, false, &menuHumdHysteresis);
 RENDERING_CALLBACK_NAME_INVOKE(fnCoolingHysteresisRtCall, largeNumItemRenderFn, "Cooling", 56, CoolingHysteresisCallback)
-EditableLargeNumberMenuItem menuCoolingHysteresis(fnCoolingHysteresisRtCall, 87, 4, 2, false, &menuHeatingHysteresis);
+EditableLargeNumberMenuItem menuCoolingHysteresis(fnCoolingHysteresisRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 87, false, &menuHeatingHysteresis);
 RENDERING_CALLBACK_NAME_INVOKE(fnHysteresisRtCall, backSubItemRenderFn, "Hysteresis", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoHysteresis = { "Hysteresis", 86, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackHysteresis(fnHysteresisRtCall, &menuCoolingHysteresis);
@@ -93,10 +93,9 @@ void setupMenu() {
     tft.begin();
     tft.setRotation(3);
     renderer.setUpdatesPerSecond(10);
-    switches.initialise(internalDigitalIo(), true);
-    menuMgr.initForUpDownOk(&renderer, &menuUsageAndGraphs, DOWN_SWITCH, UP_SWITCH, ENTER_SWITCH);
+    switches.init(internalDigitalIo(), SWITCHES_POLL_EVERYTHING, true);
+    menuMgr.initForUpDownOk(&renderer, &menuUsageAndGraphs, DOWN_SWITCH, UP_SWITCH, ENTER_SWITCH, 20);
     renderer.setTitleMode(BaseGraphicalRenderer::TITLE_ALWAYS);
     renderer.setUseSliderForAnalog(false);
     installCoolBlueTraditionalTheme(renderer, MenuFontDef(nullptr, 2), MenuFontDef(nullptr, 1), true);
 }
-

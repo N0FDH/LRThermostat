@@ -118,6 +118,7 @@
     {
       "parentId": 0,
       "type": "enumItem",
+      "defaultValue": "0",
       "item": {
         "enumEntries": [
           "Off",
@@ -138,6 +139,7 @@
     {
       "parentId": 0,
       "type": "enumItem",
+      "defaultValue": "0",
       "item": {
         "enumEntries": [
           "On",
@@ -184,6 +186,7 @@
     {
       "parentId": 86,
       "type": "largeNumItem",
+      "defaultValue": "0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -201,6 +204,7 @@
     {
       "parentId": 86,
       "type": "largeNumItem",
+      "defaultValue": "0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -218,6 +222,7 @@
     {
       "parentId": 86,
       "type": "largeNumItem",
+      "defaultValue": "0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -249,6 +254,7 @@
     {
       "parentId": 82,
       "type": "largeNumItem",
+      "defaultValue": "0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -266,6 +272,7 @@
     {
       "parentId": 82,
       "type": "largeNumItem",
+      "defaultValue": "0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -283,6 +290,7 @@
     {
       "parentId": 82,
       "type": "largeNumItem",
+      "defaultValue": "0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -314,11 +322,13 @@
     {
       "parentId": 90,
       "type": "analogItem",
+      "defaultValue": "0",
       "item": {
         "maxValue": 180,
         "offset": 0,
         "divisor": 1,
         "unitName": " min",
+        "step": 1,
         "name": "DH Min RT",
         "variableName": "MinRunTime",
         "id": 91,
@@ -332,6 +342,7 @@
     {
       "parentId": 90,
       "type": "largeNumItem",
+      "defaultValue": "0",
       "item": {
         "digitsAllowed": 5,
         "decimalPlaces": 4,
@@ -394,13 +405,8 @@
         "subsystem": "DISPLAY"
       },
       {
-        "name": "PULLUP_LOGIC",
-        "latestValue": "true",
-        "subsystem": "INPUT"
-      },
-      {
-        "name": "INTERRUPT_SWITCHES",
-        "latestValue": "false",
+        "name": "SW_POLLING_MODE",
+        "latestValue": "SWITCHES_POLL_EVERYTHING",
         "subsystem": "INPUT"
       },
       {
@@ -431,6 +437,16 @@
       {
         "name": "ENCODER_OK_PIN",
         "latestValue": "4",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "ENC_KEY_REPEAT",
+        "latestValue": "20",
+        "subsystem": "INPUT"
+      },
+      {
+        "name": "PULLUP_LOGIC",
+        "latestValue": "true",
         "subsystem": "INPUT"
       },
       {
@@ -471,6 +487,11 @@
     "authenticatorDefinition": "",
     "projectIoExpanders": [
       "deviceIO:"
-    ]
+    ],
+    "menuInMenuCollection": {
+      "menuDefinitions": []
+    },
+    "packageNamespace": "",
+    "appIsModular": false
   }
 }

@@ -32,6 +32,8 @@
 #include <InfluxDbCloud.h>
 
 #define DEBUG 1
+#define BME_MISSING 0
+#define ENCODER_REV 0
 
 // Misc defines
 #define MENU_MAGIC_KEY 0xB00B
@@ -243,6 +245,7 @@ void setup()
     loc.powerCycleCnt++;
     loc.bootTime = 0; // set to zero now, will update ASAP
 
+#if 1
     // Convert old EEPROM format to new format & initialize cycle counters
     // Eventually most of this can be deleted after Loren's LRTs are updated.
     if (loc.locMagic != LOC_MAGIC_KEY)
@@ -265,7 +268,7 @@ void setup()
         loc.dhCount = 0;
         loc.locMagic = LOC_MAGIC_KEY;
     }
-
+#endif
 #if 0
     for (int i = 0; i < 256; i += 16)
     {
@@ -291,14 +294,17 @@ void setup()
     if (loc.heatSeconds == UINT32_ERASED_VALUE)
     {
         loc.heatSeconds = 0;
+        loc.heatCount = 0;
     }
     if (loc.coolSeconds == UINT32_ERASED_VALUE)
     {
         loc.coolSeconds = 0;
+        loc.coolCount = 0;
     }
     if (loc.dhSeconds == UINT32_ERASED_VALUE)
     {
         loc.dhSeconds = 0;
+        loc.dhCount = 0;
     }
 
     // Setup the rest of the hardware
@@ -387,7 +393,7 @@ void loop()
             time1sec += LOOP_1_SEC;
 
             // flip LED
-            TOGGLE_LED();
+            // TOGGLE_LED();
 
             // Read sensor data
             readSensors();
@@ -728,7 +734,11 @@ void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
     // Update setpoint if different; same encoder conversion here
     if (pSetPt)
     {
+#if ENCODER_REV
         *pSetPt = ENC_MAX - encoderValue;
+#else
+        *pSetPt = encoderValue;
+#endif
     }
 
     dispMain();
@@ -935,6 +945,10 @@ void readSensors()
 
 void initBme280()
 {
+#if BME_MISSING
+    return;
+#endif
+
     if (!bme.begin(0x76))
     {
         // We're screwed
@@ -949,6 +963,13 @@ void readBme280(float_t *pP, float_t *pT, float_t *pH)
 {
     int32_t readCnt = 3;
     int32_t reinitCnt = 3;
+
+#if BME_MISSING
+    *pP = 90000.0;
+    *pT = 25.0;
+    *pH = 51.0;
+    return;
+#endif
 
     // Re-init twice (see below)
     while (reinitCnt--)
@@ -1175,7 +1196,11 @@ void configEncoderForMode()
     }
 
     // Encoder goes from 0 - 99 (ENC_MAX). Encoder is set to current set point
+#if ENCODER_REV
     switches.changeEncoderPrecision(ENC_MAX, pSetPt ? ENC_MAX - *pSetPt : 0);
+#else
+    switches.changeEncoderPrecision(ENC_MAX, pSetPt ? *pSetPt : 0);
+#endif
 
     //    Serial.printf("Exit menu: Cur Mode: %hd, setpt: %hu\n", mode, pSetPt ? *pSetPt : 777);
 }
