@@ -417,9 +417,9 @@ void loop()
                     loc.bootTime = now;
                     Serial.printf("boot at %u\n", loc.bootTime);
 
-                    if (loc.lastClear == UINT32_ERASED_VALUE)
+                    if (loc.lastClear == 0)
                     {
-                        loc.lastClear = 0;
+                        loc.lastClear = now;
                     }
                 }
             }
