@@ -204,6 +204,7 @@
 #define TFT_MOSI 23  // SDA Pin
 #define TFT_SCLK 33  // Clock
 
+#define TOUCH_CS 99 // unused but define to get rid of a compiler warning
 
 
 //#define TFT_WR 22    // Write strobe for modified Raspberry Pi TFT only

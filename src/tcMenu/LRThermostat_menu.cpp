@@ -24,9 +24,9 @@ GraphicsDeviceRenderer renderer(30, applicationInfo.name, &tftDrawable);
 const PROGMEM AnyMenuInfo minfoSafeShutdown = { "Safe Shutdown", 78, 0xffff, 0, SafeShutdown };
 ActionMenuItem menuSafeShutdown(&minfoSafeShutdown, NULL);
 RENDERING_CALLBACK_NAME_INVOKE(fnBaroSteadyUpLimitRtCall, largeNumItemRenderFn, "Pr Steady", 64, BaroSteadyUpLimitCallback)
-EditableLargeNumberMenuItem menuBaroSteadyUpLimit(fnBaroSteadyUpLimitRtCall, LargeFixedNumber(5, 4, 0U, 0U, false), 92, false, NULL);
+EditableLargeNumberMenuItem menuBaroSteadyUpLimit(fnBaroSteadyUpLimitRtCall, LargeFixedNumber(5, 4, 0U, 80U, false), 92, false, NULL);
 const PROGMEM AnalogMenuInfo minfoMinRunTime = { "DH Min RT", 91, 10, 180, MinRunTimeCallback, 0, 1, " min" };
-AnalogMenuItem menuMinRunTime(&minfoMinRunTime, 0, &menuBaroSteadyUpLimit);
+AnalogMenuItem menuMinRunTime(&minfoMinRunTime, 30, &menuBaroSteadyUpLimit);
 RENDERING_CALLBACK_NAME_INVOKE(fnMiscellaneousRtCall, backSubItemRenderFn, "Miscellaneous", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoMiscellaneous = { "Miscellaneous", 90, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackMiscellaneous(fnMiscellaneousRtCall, &menuMinRunTime);
@@ -42,11 +42,11 @@ const PROGMEM SubMenuInfo minfoSensorCalibration = { "Sensor Calibration", 82, 0
 BackMenuItem menuBackSensorCalibration(fnSensorCalibrationRtCall, &menuHumidityCal);
 SubMenuItem menuSensorCalibration(&minfoSensorCalibration, &menuBackSensorCalibration, &menuMiscellaneous);
 RENDERING_CALLBACK_NAME_INVOKE(fnHumdHysteresisRtCall, largeNumItemRenderFn, "Dehumidifying", 24, HumdHysteresisCallback)
-EditableLargeNumberMenuItem menuHumdHysteresis(fnHumdHysteresisRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 89, false, NULL);
+EditableLargeNumberMenuItem menuHumdHysteresis(fnHumdHysteresisRtCall, LargeFixedNumber(4, 2, 10U, 0U, false), 89, false, NULL);
 RENDERING_CALLBACK_NAME_INVOKE(fnHeatingHysteresisRtCall, largeNumItemRenderFn, "Heating", 40, HeatingHysteresisCallback)
-EditableLargeNumberMenuItem menuHeatingHysteresis(fnHeatingHysteresisRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 88, false, &menuHumdHysteresis);
+EditableLargeNumberMenuItem menuHeatingHysteresis(fnHeatingHysteresisRtCall, LargeFixedNumber(4, 2, 1U, 0U, false), 88, false, &menuHumdHysteresis);
 RENDERING_CALLBACK_NAME_INVOKE(fnCoolingHysteresisRtCall, largeNumItemRenderFn, "Cooling", 56, CoolingHysteresisCallback)
-EditableLargeNumberMenuItem menuCoolingHysteresis(fnCoolingHysteresisRtCall, LargeFixedNumber(4, 2, 0U, 0U, false), 87, false, &menuHeatingHysteresis);
+EditableLargeNumberMenuItem menuCoolingHysteresis(fnCoolingHysteresisRtCall, LargeFixedNumber(4, 2, 1U, 0U, false), 87, false, &menuHeatingHysteresis);
 RENDERING_CALLBACK_NAME_INVOKE(fnHysteresisRtCall, backSubItemRenderFn, "Hysteresis", -1, NO_CALLBACK)
 const PROGMEM SubMenuInfo minfoHysteresis = { "Hysteresis", 86, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackHysteresis(fnHysteresisRtCall, &menuCoolingHysteresis);
@@ -59,7 +59,7 @@ const char enumStrFanEnum_0[] PROGMEM = "On";
 const char enumStrFanEnum_1[] PROGMEM = "Auto";
 const char* const enumStrFanEnum[] PROGMEM  = { enumStrFanEnum_0, enumStrFanEnum_1 };
 const PROGMEM EnumMenuInfo minfoFanEnum = { "Fan", 49, 4, 1, FanCallback, enumStrFanEnum };
-EnumMenuItem menuFanEnum(&minfoFanEnum, 0, &menuThermostatSettings);
+EnumMenuItem menuFanEnum(&minfoFanEnum, 1, &menuThermostatSettings);
 const char enumStrModeEnum_0[] PROGMEM = "Off";
 const char enumStrModeEnum_1[] PROGMEM = "Heat";
 const char enumStrModeEnum_2[] PROGMEM = "Cool";
