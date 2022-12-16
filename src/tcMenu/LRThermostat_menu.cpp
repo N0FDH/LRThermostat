@@ -55,10 +55,13 @@ RENDERING_CALLBACK_NAME_INVOKE(fnThermostatSettingsRtCall, backSubItemRenderFn, 
 const PROGMEM SubMenuInfo minfoThermostatSettings = { "Settings", 8, 0xffff, 0, NO_CALLBACK };
 BackMenuItem menuBackThermostatSettings(fnThermostatSettingsRtCall, &menuHysteresis);
 SubMenuItem menuThermostatSettings(&minfoThermostatSettings, &menuBackThermostatSettings, &menuSafeShutdown);
-const char enumStrFanEnum_0[] PROGMEM = "On";
-const char enumStrFanEnum_1[] PROGMEM = "Auto";
-const char* const enumStrFanEnum[] PROGMEM  = { enumStrFanEnum_0, enumStrFanEnum_1 };
-const PROGMEM EnumMenuInfo minfoFanEnum = { "Fan", 49, 4, 1, FanCallback, enumStrFanEnum };
+
+const char enumStrFanEnum_0[] PROGMEM = "Auto";
+const char enumStrFanEnum_1[] PROGMEM = "On";
+const char enumStrFanEnum_2[] PROGMEM = "Dhm";
+const char *const enumStrFanEnum[] PROGMEM = {enumStrFanEnum_0, enumStrFanEnum_1, enumStrFanEnum_2};
+
+const PROGMEM EnumMenuInfo minfoFanEnum = {"Fan", 49, 4, 2, FanCallback, enumStrFanEnum};
 EnumMenuItem menuFanEnum(&minfoFanEnum, 1, &menuThermostatSettings);
 const char enumStrModeEnum_0[] PROGMEM = "Off";
 const char enumStrModeEnum_1[] PROGMEM = "Heat";

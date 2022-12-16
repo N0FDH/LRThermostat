@@ -105,7 +105,7 @@ float hysteresis;          //  (+/-) hysteresis/2 is centered around the set poi
 uint32_t dhMinRunTime = 0; // Dehumidifier minimim run time before shutting off
 
 MODE mode, lastMode; // Current mode and last mode
-FAN fan;             // fan state
+FAN fan;             // fan mode
 
 int32_t baroSteady; // upper baro pressure limit for 'steady'
 // END of tcMenu loaded variables
@@ -188,6 +188,7 @@ void dispDhOff();
 void dispModeOff();
 void dispFanOn();
 void dispFanOff();
+void dispFanDhm();
 void dispBaro();
 
 void timeSetup();
@@ -745,7 +746,25 @@ void mainDisplayFunction(unsigned int encoderValue, RenderPressMode clicked)
     }
 
     // fan state
-    (fan == FAN_ON) ? dispFanOn() : dispFanOff();
+    switch (fan)
+    {
+    case FAN_ON:
+        dispFanOn();
+        break;
+
+    case FAN_DHM:
+        if (mode == DEHUMIDIFY)
+        {
+            // This is only functional in DHM so only display if in that mode
+            dispFanDhm();
+            break;
+        }
+        // else fall thru
+
+    default:
+        dispFanOff();
+        break;
+    }
 
     // Go to the menu when enter pressed
     if (clicked)
@@ -1057,6 +1076,11 @@ void dehumidifyControl()
             {
                 ctlState = OFF;
                 DH(OFF);
+                if (fan == FAN_DHM)
+                {
+                    FAN(OFF);
+                    fanState = OFF;
+                }
                 compressorDelay = COMPRESSOR_DELAY;
                 ctlDebounce = CTL_DEBOUNCE_CNT;
             }
@@ -1076,6 +1100,11 @@ void dehumidifyControl()
             {
                 ctlState = ON;
                 DH(ON);
+                if (fan == FAN_DHM)
+                {
+                    FAN(ON);
+                    fanState = ON;
+                }
                 dhCount++;
                 minRunTimeDelay = dhMinRunTime;
                 ctlDebounce = CTL_DEBOUNCE_CNT;
@@ -1110,19 +1139,26 @@ void dehumidifyControl()
 #endif
 }
 
+// Next action:
+//-----------------------------------
+// state\fan   FAN_ON  FAN_AUTO  FAN_DHM
+//  ON           nc      OFF       nc
+//  OFF          ON      nc        nc
 void fanControl()
 {
-    if ((fanState == ON) && (fan == FAN_AUTO))
+    if ((fan == FAN_AUTO) && (fanState == ON))
     {
         FAN(OFF);
+        fanState = OFF;
     }
-    else if ((fanState == OFF) && (fan == FAN_ON))
+    else if ((fan == FAN_ON) && (fanState == OFF))
     {
         FAN(ON);
+        fanState = ON;
     }
     else
     {
-        // You're in-between, do nothing
+        // Something else, do nothing
     }
 }
 
@@ -1686,6 +1722,16 @@ void dispFanOff()
     tft.setTextColor(TFT_VIOLET, TFT_BLACK);
     tft.drawString("       ", x, y, 1);
     tft.drawString("    ", x, y + 10, 1);
+}
+
+void dispFanDhm()
+{
+    const int32_t x = FAN_DISP_X;
+    const int32_t y = FAN_DISP_Y;
+
+    tft.setTextColor(TFT_VIOLET, TFT_BLACK);
+    tft.drawString("FAN    ", x, y, 1);
+    tft.drawString("Dhm ", x, y + 10, 1);
 }
 
 //****************************************** Baro *********************************************

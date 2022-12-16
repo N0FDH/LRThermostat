@@ -142,8 +142,9 @@
       "defaultValue": "0",
       "item": {
         "enumEntries": [
+          "Auto",
           "On",
-          "Auto"
+          "Dhm"
         ],
         "name": "Fan",
         "variableName": "FanEnum",
@@ -186,7 +187,7 @@
     {
       "parentId": 86,
       "type": "largeNumItem",
-      "defaultValue": "0",
+      "defaultValue": "1.0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -204,7 +205,7 @@
     {
       "parentId": 86,
       "type": "largeNumItem",
-      "defaultValue": "0",
+      "defaultValue": "1.0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -222,7 +223,7 @@
     {
       "parentId": 86,
       "type": "largeNumItem",
-      "defaultValue": "0",
+      "defaultValue": "10.0",
       "item": {
         "digitsAllowed": 4,
         "decimalPlaces": 2,
@@ -322,7 +323,7 @@
     {
       "parentId": 90,
       "type": "analogItem",
-      "defaultValue": "0",
+      "defaultValue": "30",
       "item": {
         "maxValue": 180,
         "offset": 0,
@@ -342,7 +343,7 @@
     {
       "parentId": 90,
       "type": "largeNumItem",
-      "defaultValue": "0",
+      "defaultValue": "0.008",
       "item": {
         "digitsAllowed": 5,
         "decimalPlaces": 4,

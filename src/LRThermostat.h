@@ -15,9 +15,14 @@
 #define HEAT_RELAY 17       // GPIO
 #define AC_RELAY 18         // GPIO
 #define BACK_LIGHT 25       // GPIO
-#define DH_RELAY HEAT_RELAY // DH always uses HEAT relay
 #define ENTER_SWITCH 4      // GPIO
 #define ONBOARD_LED 2       // GPIO
+
+#ifndef DHM_USES_AC_RELAY
+#define DH_RELAY HEAT_RELAY // DH generally uses HEAT relay
+#else
+#define DH_RELAY AC_RELAY
+#endif
 
 #if (PCB_VERSION == 0)
 #define UP_SWITCH 13   // GPIO
@@ -62,8 +67,9 @@ typedef enum
 
 typedef enum
 {
-    FAN_ON,  // Fan is forced on
-    FAN_AUTO // Fan is controlled by the furnace
+    FAN_AUTO, // Fan is controlled by the furnace
+    FAN_ON,   // Fan is forced on
+    FAN_DHM   // Fan is turned on when dehumidifier is on
 } FAN;
 
 extern MODE mode, lastMode;
@@ -90,10 +96,10 @@ typedef struct
     uint32_t dhCount;       // total dh "on" time
                             // 12 bytes
 
-    uint8_t  pad0[212];     // Pad out to multiple of 256 bytes. This gives me a way to pseudo-erase 
-                            // this area. I can get rid of this after all LRTs have been updated.
+    uint8_t pad0[212]; // Pad out to multiple of 256 bytes. This gives me a way to pseudo-erase
+                       // this area. I can get rid of this after all LRTs have been updated.
 
-                            // Total = 16 + 16 + 12 + 212 = 256 bytes
+    // Total = 16 + 16 + 12 + 212 = 256 bytes
 } EEPROM_LOCAL_VARS;
 extern EEPROM_LOCAL_VARS loc; // local working variables
 
@@ -126,7 +132,7 @@ typedef enum
 typedef enum
 {
     GR_0H = 0,
-    GR_6H = 36, 
+    GR_6H = 36,
     GR_12H = 72,
     GR_24H = 144
 } GRAPH_CNT;

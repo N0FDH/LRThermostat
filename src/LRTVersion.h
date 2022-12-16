@@ -10,16 +10,14 @@
 // This selects what type of hardware you are targeting.
 //============================
 #define PROTOTYPE // All prototypes
-// #define PCB_V1_GREENTAB2 // Loren's basement
-// #define PCB_V1_GREENTAB3 // Loren's garage
-// #define PCB_V1_REDTAB // Randy's basement & garage
+// #define PCB_V1_GREENTAB2     // Loren's basement
+// #define PCB_V1_GREENTAB3     // Loren's garage
+// #define PCB_V1_REDTAB        // Randy's basement
+// #define PCB_V1_REDTAB_wFAN   // Randy's (cabin) garage
 //============================
 
-// Special reconfiguration for Randy's cabin (garage) heat and dehumidifier controller
-#define DHM_USES_AC_RELAY
-
 // FW version
-#define FW_VERSION "1.61"
+#define FW_VERSION "1.70"
 
 //==============================================================================
 // *** DON'T CHANGE ANYTHING BELOW THIS LINE ***
@@ -47,6 +45,15 @@
 #define PCB_VERSION 1 // 0 = prototype, 1 = 1st main release, etc
 #define ST7735_REDTAB
 #define PCB_DISP "1R"
+#endif
+
+#ifdef PCB_V1_REDTAB_wFAN
+#define PCB_VERSION 1 // 0 = prototype, 1 = 1st main release, etc
+#define ST7735_REDTAB
+#define PCB_DISP "1R"
+
+// Special reconfiguration for Randy's cabin (garage) heat and dehumidifier controller
+#define DHM_USES_AC_RELAY
 #endif
 
 #endif // LRTVERSION_H
