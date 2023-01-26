@@ -184,7 +184,7 @@ void Homepage()
     //    webpage += "<td class='large'>" + String((float)setPt, 1) + "&deg;</td>";
     webpage += "<td class='medium'>" + String(mName) + "</td>";
     webpage += "<td class='medium'>" + String(ctlState ? "On" : "Off") + "</td>";
-    webpage += "<td class='medium'>" + String(fanState ? "On" : "Auto") + "</td>";
+    // webpage += "<td class='medium'>" + String(fanState ? "On" : "Auto") + "</td>";
     webpage += "</tr>";
     //------------------------------------
     webpage += "</table>";

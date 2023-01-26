@@ -30,6 +30,7 @@
 #include "WifiCredentials.h"
 #include <InfluxDbClient.h>
 #include <InfluxDbCloud.h>
+#include <esp_task_wdt.h>
 
 #define DEBUG 1
 #define BME_MISSING 0
@@ -42,6 +43,8 @@
 #define EEPROM_CREDENTIALS_ADDR 0x200  // This leaves 256 bytes for local vars
 #define INACTIVITY_TIMEOUT 10000       // 10000 mS = 10 sec
 #define COMPRESSOR_DELAY (5 * 60)      // 5 minutes (counted in seconds)
+#define LOOP_5_MSEC 5                  // 5 mSec
+#define LONG_PRESS_LEN (3 * 1000)      // 3 seconds
 #define LOOP_1_SEC 1000                // 1000 mS = 1 sec
 #define T_10MIN_IN_SEC (10 * 60)       // 10 min (counted in seconds)
 #define T_1MIN_IN_SEC (1 * 60)         // 1 min (counted in seconds)
@@ -49,6 +52,7 @@
 #define T_100MS 100                    // 100 mS
 #define UINT32_ERASED_VALUE 0xFFFFFFFF // erased value in eeprom/flash
 #define A_KNOWN_GOOD_TIME 1600000000   // "9/13/2020 7:26:40 CST" in case you are wondering :)
+#define WDT_TIMEOUT 2                  // seconds
 
 // Relay control macros
 #if (PCB_VERSION == 0)
@@ -56,14 +60,21 @@
 #define HEAT(a) digitalWrite(HEAT_RELAY, ((a) ? (OFF) : (ON)))
 #define COOL(a) digitalWrite(AC_RELAY, ((a) ? (OFF) : (ON)))
 #define DH(a) digitalWrite(DH_RELAY, ((a) ? (OFF) : (ON)))
+
+#define FANSTATE() (!digitalRead(FAN_RELAY))
+
 #else
 #define FAN(a) digitalWrite(FAN_RELAY, ((a) ? (ON) : (OFF)))
 #define HEAT(a) digitalWrite(HEAT_RELAY, ((a) ? (ON) : (OFF)))
 #define COOL(a) digitalWrite(AC_RELAY, ((a) ? (ON) : (OFF)))
 #define DH(a) digitalWrite(DH_RELAY, ((a) ? (ON) : (OFF)))
+
+#define FANSTATE() (digitalRead(FAN_RELAY))
+
 #endif
 
 #define TOGGLE_LED() digitalWrite(ONBOARD_LED, !digitalRead(ONBOARD_LED))
+#define IS_ENTER_PRESSED() (!digitalRead(ENTER_SWITCH))
 
 // **************************** InfluxDB *****************************
 // InfluxDB client instance
@@ -111,7 +122,6 @@ int32_t baroSteady; // upper baro pressure limit for 'steady'
 // END of tcMenu loaded variables
 
 bool ctlState = OFF; // heat/cool/dh state
-bool fanState = OFF; // fan state
 bool wait = FALSE;   // either compressor delay or min run time delay
 
 bool menuChg = FALSE;       // tcMenu variable change flag (to signal save to EEPROm needed)
@@ -200,9 +210,12 @@ void (*altDispRefreshFunc)(GRAPH_CNT c) = NULL;
 // Main Arduino setup function
 void setup()
 {
-    // Scope debug pin (do this first so it is available)
+    // Setup scope debug pin
     pinMode(SCOPE_PIN, OUTPUT);
     SCOPE(LOW);
+
+    // Fire up serial port
+    Serial.begin(115200);
 
     // Initialize the EEPROM class to 1024 bytes of storage
     // 0x000-0x0FF: tcMenu (256 bytes)
@@ -210,30 +223,8 @@ void setup()
     // 0x200-0x3FF: credentials (512 bytes)
     EEPROM.begin(0x400);
 
-    // tcMenu
-    setupMenu();
-
-    // Fire up serial port
-    Serial.begin(115200);
-
-    // Splash screen
-    drawSplash(10);
-
     // Main sensor setup & initialization
     initBme280();
-
-    // Menu timeout
-    renderer.setResetIntervalTimeSeconds(5);
-
-    // Set up the timeout callback
-    renderer.setResetCallback(resetCallback);
-
-    // Load initial menu values
-    menuMgr.load(MENU_MAGIC_KEY);
-    loadMenuChanges();
-
-    // pre-fill lastMode on startup
-    lastMode = mode;
 
     // Read up nvm local variables
     // Should really check return code here...
@@ -295,11 +286,48 @@ void setup()
 
     // influx
     influxdbSetup();
+
+    // Splash screen (not a fan of the hard delay here)
+    drawSplash(10);
+
+    // All tcMenu stuff is last
+    setupMenu();
+
+    // Menu timeout
+    renderer.setResetIntervalTimeSeconds(5);
+
+    // Set up the timeout callback
+    renderer.setResetCallback(resetCallback);
+
+    // Load initial menu values
+    menuMgr.load(MENU_MAGIC_KEY);
+    loadMenuChanges();
+
+    // pre-fill lastMode on startup
+    // Note: must be initialized after loadMenuChanges()
+    lastMode = mode;
+
+    /*Syntax for assigning task to a core:
+    xTaskCreatePinnedToCore(
+                     coreTask,   // Function to implement the task
+                     "coreTask", // Name of the task
+                     10000,      // Stack size in words
+                     NULL,       // Task input parameter
+                     0,          // Priority of the task
+                     NULL,       // Task handle.
+                     taskCore);  // Core where the task should run
+    */
+    xTaskCreatePinnedToCore(codeForTask1, "FibonacciTask", 5000, NULL, 2, &Task1, 0);
+
+    // Watchdog setup
+    esp_task_wdt_init(WDT_TIMEOUT, true); // enable panic so ESP32 restarts
+    esp_task_wdt_add(NULL);               // add current thread to WDT watch
 }
 
 // Main Arduino control loop
 void loop()
 {
+    uint32_t time5msec = 0;
     uint32_t time1sec = millis() + LOOP_1_SEC;
     uint32_t time10min = 3;               // countdown
     uint32_t time24hr = T_24HOURS_IN_SEC; // countdown
@@ -310,6 +338,8 @@ void loop()
 
     while (1)
     {
+        esp_task_wdt_reset();
+
         curTime = millis();
 
         if (curTime >= wifiRetry)
@@ -343,13 +373,55 @@ void loop()
         // Service tcMenu
         taskManager.runLoop();
 
+        // Service 5 mSec timer
+        static uint32_t longPressStart = 0;
+        static MODE modeB4LongPress = mode;
+        if (time5msec <= curTime)
+        {
+            time5msec = curTime + LOOP_5_MSEC;
+            if (IS_ENTER_PRESSED())
+            {
+                if (longPressStart == 0)
+                {
+                    longPressStart = curTime;
+                }
+
+                // Has button been pressed for 3 sec?
+                else if ((curTime - longPressStart) > LONG_PRESS_LEN)
+                {
+                    Serial.printf("LONG PRESS DETECTED!\n");
+
+                    if (modeB4LongPress != NO_MODE)
+                    {
+                        modeB4LongPress = mode;
+                        menuModeEnum.setCurrentValue(NO_MODE);
+                    }
+                    else
+                    {
+                        menuModeEnum.setCurrentValue(modeB4LongPress);
+                    }
+
+                    longPressStart = 0;
+                }
+
+                // nothing more to do
+                else
+                {
+                }
+            }
+            else
+            {
+                longPressStart = 0;
+            }
+        }
+
         // Service 1 second loop timer
         if (time1sec <= curTime)
         {
             time1sec += LOOP_1_SEC;
 
             // flip LED
-            // TOGGLE_LED();
+            TOGGLE_LED();
 
             // Read sensor data
             readSensors();
@@ -493,11 +565,13 @@ void loop()
                         Serial.println(influxdb.pointToLineProtocol(lrtData));
 
                         // Write point
+                        SCOPE(1);
                         if (!influxdb.writePoint(lrtData))
                         {
                             Serial.print("InfluxDB write failed: ");
                             Serial.println(influxdb.getLastErrorMessage());
                         }
+                        SCOPE(0);
                     }
                 }
             }
@@ -880,8 +954,6 @@ void loadMenuChanges()
 // achieved after several iterations of the filter.
 void readSensors()
 {
-    SCOPE(1);
-
     static bool readSensorsInit = FALSE;
     float p, t, h;
 
@@ -913,8 +985,6 @@ void readSensors()
     curTemp = (tempFilter.Current() * 1.8) + 32 + tempCal;
     curHumd = humdFilter.Current() + humdCal;
     curBaro = (baroFilter.Current() / 3386.39) + baroCal;
-
-    SCOPE(0);
 }
 
 void initBme280()
@@ -1079,7 +1149,6 @@ void dehumidifyControl()
                 if (fan == FAN_DHM)
                 {
                     FAN(OFF);
-                    fanState = OFF;
                 }
                 compressorDelay = COMPRESSOR_DELAY;
                 ctlDebounce = CTL_DEBOUNCE_CNT;
@@ -1103,7 +1172,6 @@ void dehumidifyControl()
                 if (fan == FAN_DHM)
                 {
                     FAN(ON);
-                    fanState = ON;
                 }
                 dhCount++;
                 minRunTimeDelay = dhMinRunTime;
@@ -1146,19 +1214,20 @@ void dehumidifyControl()
 //  OFF          ON      nc        nc
 void fanControl()
 {
-    if ((fan == FAN_AUTO) && (fanState == ON))
+    if ((fan == FAN_AUTO) && (FANSTATE() == ON))
     {
+        Serial.println("FAN --> OFF");
         FAN(OFF);
-        fanState = OFF;
     }
-    else if ((fan == FAN_ON) && (fanState == OFF))
+    else if ((fan == FAN_ON) && (FANSTATE() == OFF))
     {
+        Serial.println("FAN --> ON");
         FAN(ON);
-        fanState = ON;
     }
     else
     {
-        // Something else, do nothing
+        // FAN_AUTO && OFF
+        // FAN_ON && ON
     }
 }
 
@@ -1240,8 +1309,8 @@ void CALLBACK_FUNCTION ExitCallback(int id)
 // item has been changed, so we know when to save to EEPROM.
 void CALLBACK_FUNCTION ModeCallback(int id)
 {
-    //    int32_t val = menuModeEnum.getCurrentValue();
-    //    Serial.printf("CB - Mode: %d\n", val);
+    // int32_t val = menuModeEnum.getCurrentValue();
+    //     Serial.printf("CB - Mode: %d\n", val);
     menuChg = TRUE;
 
     // Save accumulated runtime data when mode is changed to tie up loose ends.
@@ -1923,6 +1992,7 @@ void influxdbSetup()
     {
         influxdb.setConnectionParams(creds.influxDbUrl, creds.influxDbOrg, creds.influxDbBucket,
                                      creds.influxDbToken, InfluxDbCloud2CACert);
+        Serial.printf("Influx: using bucket %s / %s\n", creds.influxDbOrg, creds.influxDbBucket);
         influxdbUp = TRUE;
     }
     else

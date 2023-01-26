@@ -21,6 +21,9 @@ void drawSplash(uint32_t seconds)
         SCOPE(1);
 #endif
 
+        tft.begin();
+        tft.setRotation(3);
+
 #if 0
     // sram: 8 mS using DMA
     // flash: 12 mS if bytes are preswapped (i.e. big-endian)

@@ -10,7 +10,7 @@
 // This selects what type of hardware you are targeting.
 //============================
 #define PROTOTYPE // All prototypes
-// #define PCB_V1_GREENTAB2     // Loren's basement
+// #define PCB_V1_GREENTAB2 // Loren's basement
 // #define PCB_V1_GREENTAB3     // Loren's garage
 // #define PCB_V1_REDTAB        // Randy's basement
 // #define PCB_V1_REDTAB_wFAN   // Randy's (cabin) garage
