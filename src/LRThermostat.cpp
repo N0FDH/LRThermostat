@@ -307,18 +307,6 @@ void setup()
     // Note: must be initialized after loadMenuChanges()
     lastMode = mode;
 
-    /*Syntax for assigning task to a core:
-    xTaskCreatePinnedToCore(
-                     coreTask,   // Function to implement the task
-                     "coreTask", // Name of the task
-                     10000,      // Stack size in words
-                     NULL,       // Task input parameter
-                     0,          // Priority of the task
-                     NULL,       // Task handle.
-                     taskCore);  // Core where the task should run
-    */
-    xTaskCreatePinnedToCore(codeForTask1, "FibonacciTask", 5000, NULL, 2, &Task1, 0);
-
     // Watchdog setup
     esp_task_wdt_init(WDT_TIMEOUT, true); // enable panic so ESP32 restarts
     esp_task_wdt_add(NULL);               // add current thread to WDT watch
@@ -373,6 +361,7 @@ void loop()
         // Service tcMenu
         taskManager.runLoop();
 
+#if 0
         // Service 5 mSec timer
         static uint32_t longPressStart = 0;
         static MODE modeB4LongPress = mode;
@@ -414,6 +403,7 @@ void loop()
                 longPressStart = 0;
             }
         }
+#endif
 
         // Service 1 second loop timer
         if (time1sec <= curTime)
@@ -547,6 +537,7 @@ void loop()
                     // This is a B.S. service; very flakey. Should remove.
                     restartMdns();
 
+#ifndef PCB_V1_REDTAB_wFAN
                     if (influxdbUp)
                     {
                         // InFLuxDB stuff
@@ -573,6 +564,7 @@ void loop()
                         }
                         SCOPE(0);
                     }
+#endif
                 }
             }
 
